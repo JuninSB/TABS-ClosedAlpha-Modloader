@@ -13,7 +13,7 @@ namespace TABSClosedAlpha
             var root = JsonReader.Parse(text) as Dictionary<string, object>;
             if (root == null) throw new FormatException("Manifest root must be an object.");
             var mod = new ModMetadata();
-            mod.Id = StringValue(root, "id"); mod.Name = StringValue(root, "name"); mod.Version = StringValue(root, "version");
+            mod.Id = StringValue(root, "id"); mod.Name = StringValue(root, "name"); mod.Version = StringValue(root, "version"); mod.ApiVersion = StringValue(root, "apiVersion");
             mod.Author = StringValue(root, "author"); mod.Description = StringValue(root, "description"); mod.Main = StringValue(root, "main"); mod.MainType = StringValue(root, "mainType");
             object dependencies; if (root.TryGetValue("dependencies", out dependencies) && dependencies is ArrayList) foreach (object value in (ArrayList)dependencies)
             {
@@ -21,6 +21,7 @@ namespace TABSClosedAlpha
                 var objectValue = value as Dictionary<string, object>; if (objectValue == null) throw new FormatException("dependencies entries must be strings or objects.");
                 mod.Dependencies.Add(new ModDependency { Id = StringValue(objectValue, "id"), Version = StringValue(objectValue, "version") });
             }
+            object conflicts; if (root.TryGetValue("conflicts", out conflicts) && conflicts is ArrayList) foreach (object value in (ArrayList)conflicts) { string id = value as string; if (String.IsNullOrEmpty(id)) throw new FormatException("conflicts entries must be strings."); mod.Conflicts.Add(id); }
             return mod;
         }
         static string StringValue(Dictionary<string, object> objectValue, string name) { object value; return objectValue.TryGetValue(name, out value) && value != null ? value as string : null; }
