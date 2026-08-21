@@ -1,0 +1,8 @@
+app/
+.toolchain/
+.toolchain-dotnet-install.ps1
+github_key.txt
+**/bin/
+**/obj/
+Mods/**/Assets/*
+!Mods/ExampleMod/mod.json
