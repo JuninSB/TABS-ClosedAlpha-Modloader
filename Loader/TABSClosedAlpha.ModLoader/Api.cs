@@ -79,6 +79,7 @@ namespace TABSClosedAlpha
         readonly string path; readonly IModLogger log; readonly Dictionary<string, string> values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
         internal ModSettings(string path, IModLogger log) { this.path = path; this.log = log; Load(); }
         public string Get(string key, string defaultValue) { string value; if (values.TryGetValue(key, out value)) return value; values[key] = defaultValue; Save(); return defaultValue; }
+        public void Set(string key, string value) { values[key] = value; Save(); }
         public bool GetBool(string key, bool defaultValue) { bool parsed; return Boolean.TryParse(Get(key, defaultValue.ToString()), out parsed) ? parsed : defaultValue; }
         void Load() { if (!File.Exists(path)) return; foreach (var line in File.ReadAllLines(path)) { int p = line.IndexOf('='); if (p > 0) values[line.Substring(0, p).Trim()] = line.Substring(p + 1).Trim(); } }
         void Save() { try { using (var writer = new StreamWriter(path, false)) foreach (var pair in values) writer.WriteLine(pair.Key + "=" + pair.Value); } catch (Exception e) { log.Error("Could not save settings", e); } }
