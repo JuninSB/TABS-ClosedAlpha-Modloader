@@ -1,0 +1,10 @@
+{
+  "id": "examplemod",
+  "name": "Example Mod",
+  "version": "1.0.0",
+  "author": "juninsb",
+  "description": "Demonstra eventos, UI, teclas, configuração, assets, serviços e Harmony.",
+  "main": "ExampleMod.dll",
+  "mainType": "ExampleMod.Main",
+  "dependencies": []
+}
