@@ -13,6 +13,16 @@ if ($Build) {
 Copy-Item -LiteralPath (Join-Path $bepinex 'BepInEx') -Destination $game -Recurse -Force
 Copy-Item -LiteralPath (Join-Path $bepinex 'winhttp.dll') -Destination $game -Force
 Copy-Item -LiteralPath (Join-Path $bepinex 'doorstop_config.ini') -Destination $game -Force
+$bepConfig = Join-Path $game 'BepInEx\config\BepInEx.cfg'
+if (-not (Test-Path $bepConfig)) {
+    New-Item -ItemType Directory -Force -Path (Split-Path $bepConfig) | Out-Null
+    @"
+[Preloader.Entrypoint]
+Assembly = Assembly-CSharp.dll
+Type = GameMode
+Method = Awake
+"@ | Set-Content -LiteralPath $bepConfig -Encoding ASCII
+}
 $pluginDir = Join-Path $game 'BepInEx\plugins'
 $loaderDir = Join-Path $game 'Loader'
 $modDir = Join-Path $game 'Mods\ExampleMod'
