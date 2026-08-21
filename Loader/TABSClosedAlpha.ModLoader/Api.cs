@@ -8,6 +8,7 @@ using UnityEngine.SceneManagement;
 
 namespace TABSClosedAlpha
 {
+    public static class LoaderApi { public const string Version = "1.0"; }
     public interface IMod { void Initialize(ModContext context); void Shutdown(); }
 
     public sealed class ModContext
@@ -29,7 +30,7 @@ namespace TABSClosedAlpha
     }
 
     public interface IModLogger { void Info(string message); void Warning(string message); void Error(string message); void Error(string message, Exception exception); }
-    public sealed class ModMetadata { public string Id; public string Name; public string Version; public string Author; public string Description; public string Main; public string MainType; public List<ModDependency> Dependencies = new List<ModDependency>(); }
+    public sealed class ModMetadata { public string Id; public string Name; public string Version; public string ApiVersion; public string Author; public string Description; public string Main; public string MainType; public List<ModDependency> Dependencies = new List<ModDependency>(); public List<string> Conflicts = new List<string>(); }
     public sealed class ModDependency { public string Id; public string Version; }
 
     public sealed class ModEvents
