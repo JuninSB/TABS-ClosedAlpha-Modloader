@@ -1,0 +1,11 @@
+{
+  "id": "tabium",
+  "name": "Tabium",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "author": "JuninSB",
+  "description": "Optimization settings for the 2016 TABS Closed Alpha.",
+  "main": "Tabium.dll",
+  "mainType": "Tabium.Main",
+  "dependencies": []
+}
