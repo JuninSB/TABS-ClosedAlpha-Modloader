@@ -9,15 +9,17 @@ Compile para .NET Framework 3.5 e referencie `app/Loader/TABSClosedAlpha.ModLoad
   "id": "meu.mod",
   "name": "Meu Mod",
   "version": "1.0.0",
+  "apiVersion": "1.0",
   "author": "Você",
   "description": "Descrição",
   "main": "MeuMod.dll",
   "mainType": "MeuMod.Main",
-  "dependencies": ["outro.mod", { "id": "api.extra", "version": "1.2.0" }]
+  "dependencies": ["outro.mod", { "id": "api.extra", "version": "1.2.0" }],
+  "conflicts": ["mod.incompativel"]
 }
 ```
 
-`id`, `name`, `version` e `main` são obrigatórios. Dependências carregam antes do mod, por `id` em ordem determinística; se informar `version`, a versão deve coincidir exatamente. IDs duplicados, ciclos e dependências ausentes são registrados e aquele mod é ignorado sem impedir os demais.
+`id`, `name`, `version` e `main` são obrigatórios. `apiVersion` é validada por versão maior da API. Dependências carregam antes do mod, por `id` em ordem determinística; se informar `version`, a versão deve coincidir exatamente. IDs duplicados, ciclos, conflitos e dependências ausentes são registrados e aquele mod é ignorado sem impedir os demais.
 
 ## Entrada
 
