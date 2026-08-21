@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net35</TargetFramework>
+    <AssemblyName>Tabium</AssemblyName>
+    <RootNamespace>Tabium</RootNamespace>
+    <LangVersion>6</LangVersion>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+  </PropertyGroup>
+  <ItemGroup><PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net35" Version="1.0.3" PrivateAssets="All" /></ItemGroup>
+  <ItemGroup>
+    <Reference Include="TABSClosedAlpha.ModLoader"><HintPath>$(MSBuildProjectDirectory)\..\..\Loader\TABSClosedAlpha.ModLoader\bin\Debug\net35\TABSClosedAlpha.ModLoader.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(MSBuildProjectDirectory)\..\..\app\TotallyAccurateBattleSimulatorClosedAlpha_Data\Managed\UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UI"><HintPath>$(MSBuildProjectDirectory)\..\..\app\TotallyAccurateBattleSimulatorClosedAlpha_Data\Managed\UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Assembly-CSharp"><HintPath>$(MSBuildProjectDirectory)\..\..\app\TotallyAccurateBattleSimulatorClosedAlpha_Data\Managed\Assembly-CSharp.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>
