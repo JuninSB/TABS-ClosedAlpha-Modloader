@@ -18,6 +18,7 @@ O script adiciona somente `app\winhttp.dll`, `app\doorstop_config.ini`, `app\Bep
 ```text
 app/
   Mods/ExampleMod/{ExampleMod.dll,mod.json,Assets/}
+  Mods/Tabium/{Tabium.dll,mod.json}
   Loader/{TABSClosedAlpha.ModLoader.dll,disabled-mods.txt}
   BepInEx/plugins/TABSClosedAlpha.ModLoader.dll
 ```
@@ -25,3 +26,5 @@ app/
 Para desabilitar um mod, acrescente o `id` dele em `app/Loader/disabled-mods.txt`.
 
 Leia [a documentação de desenvolvimento](Docs/Modding.md) e [a análise da build](Docs/Game-Analysis.md).
+
+O mod `Tabium` adiciona um painel próprio à tela real de configurações do jogo. Ele oferece toggles para reduzir SSAO/anti-aliasing/depth-of-field/bloom, desligar sombras realtime e usar limite estável de 60 FPS. As escolhas ficam em `app/Mods/Tabium/config.cfg`.
