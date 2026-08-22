@@ -33,6 +33,8 @@ Também foram adicionados dois assistentes opcionais, controlados no menu do Twe
 
 O controle não cria um cooldown artificial por frame: a cadência de passos continua sendo a do `PhysicsAnimation.Walk()` e seus campos `stepCounter`/`legSpeed`. O Tweaks apenas impede intenção no ar, reduz velocidade lateral residual e mantém a coluna próxima da vertical durante a posse.
 
+Como proteção adicional contra o problema observado no Alpha, `ANTI-DESLIZAMENTO: EXIGIR PASSO ATIVO` observa a velocidade linear/angular dos rigidbodies `leftLeg` e `rightLeg`. Se o torso estiver deslizando e as duas pernas ficarem paradas por aproximadamente `0,12 s`, a intenção é suspensa por `0,08 s` para o solver nativo iniciar o próximo passo. Isso não afirma que a Steam usa esse teste diretamente; é uma adaptação explícita para a limitação do solver antigo, baseada nos componentes reais do Alpha.
+
 Esses assistentes não substituem o `Walk()` nem inventam classes da Steam: eles complementam o solver que realmente existe nesta build.
 
 Isso é deliberadamente conservador: importar o `MovementHandler` ou o `Balance` da Steam seria incompatível com o runtime e os tipos do Alpha. O próximo aprimoramento seguro é um solver opcional de tração/apoio usando apenas os rigidbodies de perna já presentes no Alpha, com raycasts que ignorem os próprios colliders da unidade.
