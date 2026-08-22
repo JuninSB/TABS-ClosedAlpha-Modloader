@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "apiVersion": "1.0",
   "author": "JuninSB",
-  "description": "Optimization settings for the 2016 TABS Closed Alpha.",
+  "description": "Sodium-inspired optimization mod for the 2016 TABS Closed Alpha; SoftUI is used only for its settings UI.",
   "main": "Tabium.dll",
   "mainType": "Tabium.Main",
   "dependencies": ["softui"]
