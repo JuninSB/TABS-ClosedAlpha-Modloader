@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using TABSClosedAlpha;
 using UnityEngine;
 using UnityEngine.UI;
@@ -37,7 +38,7 @@ namespace SoftUI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280f, 720f);
             hostObject.AddComponent<GraphicRaycaster>();
-            ModMenu = new ModMenuService(this, log);
+            ModMenu = new ModMenuService(this, log, hostObject.transform);
         }
         public SoftWindow CreateWindow(string id, string title)
         {
@@ -46,6 +47,7 @@ namespace SoftUI
             return window;
         }
         public void InstallMainMenuButton(GameObject mainMenuRoot) { if (ModMenu != null) ModMenu.InstallMainMenuButton(mainMenuRoot); }
+        public void SetMainMenuButtonVisible(bool visible) { if (ModMenu != null) ModMenu.SetMainMenuButtonVisible(visible); }
         internal void Tick() { for (int i = 0; i < windows.Count; i++) windows[i].Tick(); if (ModMenu != null) ModMenu.Tick(); }
         internal void Destroy() { for (int i = 0; i < windows.Count; i++) windows[i].Destroy(); windows.Clear(); if (hostObject != null) UnityEngine.Object.Destroy(hostObject); }
     }
@@ -62,7 +64,8 @@ namespace SoftUI
         sealed class Entry { public string Id; public string Title; public Action<SoftTab> Build; public SoftWindow Window; public bool Added; }
         readonly SoftUiService service; readonly IModLogger log; readonly List<Entry> entries = new List<Entry>();
         GameObject mainMenuRoot; GameObject modsButton; SoftWindow listWindow; SoftTab listPage; bool opened;
-        internal ModMenuService(SoftUiService service, IModLogger log) { this.service = service; this.log = log; }
+        readonly Transform overlayParent;
+        internal ModMenuService(SoftUiService service, IModLogger log, Transform overlayParent) { this.service = service; this.log = log; this.overlayParent = overlayParent; }
         public void Register(string id, string title, Action<SoftTab> build)
         {
             for (int i = 0; i < entries.Count; i++) if (String.Equals(entries[i].Id, id, StringComparison.OrdinalIgnoreCase)) { entries[i].Title = title; entries[i].Build = build; return; }
@@ -76,23 +79,35 @@ namespace SoftUI
             mainMenuRoot = root;
             Button sample = root.GetComponentInChildren<Button>(true);
             if (sample == null) { log.Warning("SoftUI could not find a native main-menu button for Mods."); return; }
-            modsButton = CreateButton("MODS", sample, sample.transform.parent); modsButton.name = "SoftUI Mods Button";
+            modsButton = CreateButton("MODS", sample, overlayParent); modsButton.name = "SoftUI Mods Button";
+            RectTransform modsRect = modsButton.GetComponent<RectTransform>(); modsRect.anchorMin = new Vector2(0f, 1f); modsRect.anchorMax = new Vector2(0f, 1f); modsRect.pivot = new Vector2(0f, 1f); modsRect.anchoredPosition = new Vector2(24f, -24f); modsRect.sizeDelta = new Vector2(150f, 38f);
+            LayoutElement modsLayout = modsButton.GetComponent<LayoutElement>(); if (modsLayout != null) { modsLayout.minWidth = 150f; modsLayout.preferredWidth = 150f; modsLayout.minHeight = 38f; modsLayout.preferredHeight = 38f; modsLayout.flexibleWidth = 0f; }
             modsButton.GetComponent<Button>().onClick.AddListener(OpenMenu);
             log.Info("Mods button added to the native main menu.");
         }
+        public void SetMainMenuButtonVisible(bool visible) { if (modsButton != null && !opened) modsButton.SetActive(visible); }
         GameObject CreateButton(string label, Button style, Transform parent)
         {
             GameObject obj = new GameObject("SoftUI Button " + label); obj.transform.SetParent(parent, false); RectTransform rect = obj.AddComponent<RectTransform>(); rect.localScale = Vector3.one;
             LayoutElement layout = obj.AddComponent<LayoutElement>(); layout.minWidth = 170f; layout.preferredWidth = 190f; layout.minHeight = 44f; layout.preferredHeight = 44f;
             Image image = obj.AddComponent<Image>(); Image sourceImage = style == null ? null : style.GetComponent<Image>(); if (sourceImage != null) { image.sprite = sourceImage.sprite; image.material = sourceImage.material; image.type = sourceImage.type; image.color = sourceImage.color; }
-            Button button = obj.AddComponent<Button>(); if (style != null) button.colors = style.colors; button.targetGraphic = image;
+            Button button = obj.AddComponent<Button>(); if (style != null) { button.colors = style.colors; button.transition = style.transition; button.spriteState = style.spriteState; button.animationTriggers = style.animationTriggers; button.navigation = style.navigation; } button.targetGraphic = image;
+            CopyNativeAnimationAndSound(style, obj);
             GameObject textObj = new GameObject("Text"); textObj.transform.SetParent(obj.transform, false); RectTransform textRect = textObj.AddComponent<RectTransform>(); textRect.anchorMin = Vector2.zero; textRect.anchorMax = Vector2.one; textRect.offsetMin = new Vector2(8f, 0f); textRect.offsetMax = new Vector2(-8f, 0f);
             Text sourceText = style == null ? null : style.GetComponentInChildren<Text>(true); Text text = textObj.AddComponent<Text>(); text.font = sourceText == null ? Resources.GetBuiltinResource<Font>("Arial.ttf") : sourceText.font; text.fontSize = sourceText == null ? 15 : sourceText.fontSize; text.color = sourceText == null ? Color.white : sourceText.color; text.alignment = TextAnchor.MiddleCenter; text.horizontalOverflow = HorizontalWrapMode.Overflow; text.text = label;
             return obj;
         }
+        static void CopyNativeAnimationAndSound(Button source, GameObject target)
+        {
+            if (source == null) return;
+            Animator sourceAnimator = source.GetComponent<Animator>();
+            if (sourceAnimator != null && sourceAnimator.runtimeAnimatorController != null) { Animator animator = target.AddComponent<Animator>(); animator.runtimeAnimatorController = sourceAnimator.runtimeAnimatorController; animator.avatar = sourceAnimator.avatar; animator.applyRootMotion = sourceAnimator.applyRootMotion; animator.updateMode = sourceAnimator.updateMode; animator.cullingMode = sourceAnimator.cullingMode; }
+            Component sourceSound = source.GetComponent("MenuSounds");
+            if (sourceSound != null) try { Component sound = target.AddComponent(sourceSound.GetType()); foreach (FieldInfo field in sourceSound.GetType().GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)) if (!field.IsInitOnly) field.SetValue(sound, field.GetValue(sourceSound)); } catch (Exception) { }
+        }
         void OpenMenu()
         {
-            opened = true; if (mainMenuRoot != null) mainMenuRoot.SetActive(false);
+            opened = true; if (modsButton != null) modsButton.SetActive(false); if (mainMenuRoot != null) mainMenuRoot.SetActive(false);
             if (listWindow == null) { listWindow = service.CreateWindow("mods-menu", "MODS"); listPage = listWindow.AddTab("mods", "MODS"); listPage.AddLabel("INSTALLED MODS", 22); listPage.AddButton("BACK TO GAME", CloseMenu); }
             for (int i = 0; i < entries.Count; i++) AddEntry(entries[i]);
             listWindow.SetVisible(true);
@@ -109,7 +124,7 @@ namespace SoftUI
         }
         void CloseMenu()
         {
-            opened = false; if (listWindow != null) listWindow.SetVisible(false); for (int i = 0; i < entries.Count; i++) if (entries[i].Window != null) entries[i].Window.SetVisible(false); if (mainMenuRoot != null) mainMenuRoot.SetActive(true);
+            opened = false; if (listWindow != null) listWindow.SetVisible(false); for (int i = 0; i < entries.Count; i++) if (entries[i].Window != null) entries[i].Window.SetVisible(false); if (mainMenuRoot != null) mainMenuRoot.SetActive(true); if (modsButton != null) modsButton.SetActive(true);
         }
         internal void Tick() { }
     }
@@ -133,10 +148,10 @@ namespace SoftUI
         internal SoftWindow(string id, string title, Transform canvas, IModLogger log)
         {
             Id = id; this.log = log;
-            root = Make("Window " + id, canvas); RectTransform frame = root.GetComponent<RectTransform>(); frame.anchorMin = new Vector2(.5f, .5f); frame.anchorMax = new Vector2(.5f, .5f); frame.pivot = new Vector2(.5f, .5f); frame.anchoredPosition = Vector2.zero; frame.sizeDelta = new Vector2(1120f, 650f);
+            root = Make("Window " + id, canvas); RectTransform frame = root.GetComponent<RectTransform>(); frame.anchorMin = new Vector2(.5f, .5f); frame.anchorMax = new Vector2(.5f, .5f); frame.pivot = new Vector2(.5f, .5f); frame.anchoredPosition = Vector2.zero; frame.sizeDelta = new Vector2(900f, 520f);
             root.AddComponent<Image>().color = new Color(.12f, .105f, .09f, .96f);
             var horizontal = root.AddComponent<HorizontalLayoutGroup>(); horizontal.padding = new RectOffset(24, 24, 22, 22); horizontal.spacing = 24; horizontal.childForceExpandHeight = true; horizontal.childForceExpandWidth = false;
-            var side = Make("Sidebar", root.transform); side.AddComponent<LayoutElement>().preferredWidth = 250f; var sideLayout = side.AddComponent<VerticalLayoutGroup>(); sideLayout.spacing = 10; sideLayout.childForceExpandHeight = false; sideLayout.padding = new RectOffset(4, 4, 4, 4); AddLabel(side.transform, title.ToUpperInvariant(), 22, new Color(.87f, .78f, .62f, 1f), 46f);
+            var side = Make("Sidebar", root.transform); side.AddComponent<LayoutElement>().preferredWidth = 190f; var sideLayout = side.AddComponent<VerticalLayoutGroup>(); sideLayout.spacing = 8; sideLayout.childForceExpandHeight = false; sideLayout.childForceExpandWidth = true; sideLayout.padding = new RectOffset(4, 4, 4, 4); AddLabel(side.transform, title.ToUpperInvariant(), 19, new Color(.87f, .78f, .62f, 1f), 38f);
             content = Make("Content", root.transform); content.AddComponent<LayoutElement>().flexibleWidth = 1f; content.AddComponent<VerticalLayoutGroup>().padding = new RectOffset(20, 20, 12, 12);
             root.SetActive(false);
         }
@@ -174,7 +189,7 @@ namespace SoftUI
         public SoftTab AddTab(string id, string label)
         {
             var page = Make("Tab " + id, content.transform); page.SetActive(false); page.AddComponent<VerticalLayoutGroup>().spacing = 8; page.GetComponent<VerticalLayoutGroup>().childForceExpandHeight = false; pages[id] = page;
-            var button = Make("Tab Button " + id, root.transform.Find("Sidebar")); button.AddComponent<LayoutElement>().preferredHeight = 46f; var image = button.AddComponent<Image>(); image.color = new Color(.22f, .18f, .14f, 1f); var uiButton = button.AddComponent<Button>(); uiButton.targetGraphic = image; uiButton.onClick.AddListener(() => SelectTab(id)); AddLabel(button.transform, label.ToUpperInvariant(), 15, new Color(.94f, .9f, .82f, 1f), 46f); buttons[id] = button;
+            var button = Make("Tab Button " + id, root.transform.Find("Sidebar")); button.AddComponent<LayoutElement>().minHeight = 36f; button.GetComponent<LayoutElement>().preferredHeight = 36f; var image = button.AddComponent<Image>(); image.color = new Color(.22f, .18f, .14f, 1f); var uiButton = button.AddComponent<Button>(); uiButton.targetGraphic = image; uiButton.onClick.AddListener(() => SelectTab(id)); AddLabel(button.transform, label.ToUpperInvariant(), 13, new Color(.94f, .9f, .82f, 1f), 36f); buttons[id] = button;
             if (activeTab == null) SelectTab(id);
             return new SoftTab(page.transform, this, log);
         }
@@ -195,7 +210,7 @@ namespace SoftUI
         public Toggle AddToggle(string id, string label, bool value, Action<bool> changed) { var obj = Row(id); obj.AddComponent<Image>().color = new Color(.18f, .15f, .12f, 1f); var toggle = obj.AddComponent<Toggle>(); toggle.isOn = value; toggle.onValueChanged.AddListener(v => Safe(() => changed(v))); var caption = SoftWindow.AddLabel(obj.transform, label.ToUpperInvariant(), 14, new Color(.94f, .9f, .82f, 1f), 38f); caption.rectTransform.offsetMin = new Vector2(30f, 0f); return toggle; }
         public Slider AddSlider(string id, string label, float value, float min, float max, Action<float> changed) { var obj = Row(id); SoftWindow.AddLabel(obj.transform, label, 13, Color.white, 30f); var sliderObj = new GameObject("Slider"); sliderObj.transform.SetParent(obj.transform, false); sliderObj.AddComponent<RectTransform>(); sliderObj.AddComponent<LayoutElement>().flexibleWidth = 1f; var slider = sliderObj.AddComponent<Slider>(); slider.minValue = min; slider.maxValue = max; slider.value = value; slider.onValueChanged.AddListener(v => Safe(() => changed(v))); return slider; }
         public Button AddDropdown(string id, string label, string[] choices, int selected, Action<int> changed) { var obj = Row(id); var image = obj.AddComponent<Image>(); image.color = new Color(.08f, .10f, .14f, 1f); var button = obj.AddComponent<Button>(); button.targetGraphic = image; var text = SoftWindow.AddLabel(obj.transform, label + ": " + choices[Mathf.Clamp(selected, 0, choices.Length - 1)], 13, Color.white, 34f); int index = Mathf.Clamp(selected, 0, choices.Length - 1); button.onClick.AddListener(() => { index = (index + 1) % choices.Length; text.text = label + ": " + choices[index]; Safe(() => changed(index)); }); return button; }
-        GameObject Row(string name) { var obj = new GameObject(name); obj.transform.SetParent(parent, false); var rect = obj.AddComponent<RectTransform>(); rect.sizeDelta = new Vector2(0f, 38f); obj.AddComponent<LayoutElement>().preferredHeight = 38f; var horizontal = obj.AddComponent<HorizontalLayoutGroup>(); horizontal.spacing = 10; horizontal.childForceExpandWidth = false; return obj; }
+        GameObject Row(string name) { var obj = new GameObject(name); obj.transform.SetParent(parent, false); var rect = obj.AddComponent<RectTransform>(); rect.sizeDelta = new Vector2(0f, 34f); LayoutElement element = obj.AddComponent<LayoutElement>(); element.minHeight = 34f; element.preferredHeight = 34f; element.flexibleWidth = 1f; var horizontal = obj.AddComponent<HorizontalLayoutGroup>(); horizontal.spacing = 10; horizontal.padding = new RectOffset(8, 8, 2, 2); horizontal.childForceExpandWidth = true; horizontal.childForceExpandHeight = true; return obj; }
         void Safe(Action action) { try { if (action != null) action(); } catch (Exception e) { log.Error("SoftUI control callback failed", e); } }
     }
 }
