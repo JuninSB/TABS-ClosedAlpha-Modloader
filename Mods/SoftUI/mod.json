@@ -1,0 +1,11 @@
+{
+  "id": "softui",
+  "name": "SoftUI",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "author": "JuninSB",
+  "description": "Reusable sidebar, tabs and controls for TABS mods.",
+  "main": "SoftUI.dll",
+  "mainType": "SoftUI.Main",
+  "dependencies": []
+}
