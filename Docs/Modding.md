@@ -53,9 +53,9 @@ public sealed class MeuComponente : MonoBehaviour { void Update() { } }
 - `Patches`: `Prefix`, `Postfix` e `Patch` sobre um `MethodBase`, usando Harmony incluído pelo BepInEx.
 - `Game`: objetos e APIs confirmados desta build: `Units`, `GetUnitDefinition`, `LoadBuiltinUnit`, `LoadWorld`, `Battle`, `Mode`, `Find<T>` e `PrivateField`.
 
-## SoftUI
+## SoftUI (library independente)
 
-`SoftUI` é um mod-library carregado antes dos mods que dependem dele. Declare `"softui"` no manifesto e referencie `Examples/SoftUI/bin/.../SoftUI.dll` ao compilar. Obtenha o serviço com `context.Services.Get<SoftUiService>("softui")`.
+`SoftUI` e `Tabium` não são o mesmo projeto. SoftUI é uma library carregada como um mod de infraestrutura, sem otimizações próprias e sem conhecimento de opções de performance. Declare `"softui"` no manifesto de qualquer mod que precise dela e referencie `Examples/SoftUI/bin/.../SoftUI.dll` ao compilar. Obtenha o serviço com `context.Services.Get<SoftUiService>("softui")`. Um mod pode usar SoftUI sem instalar Tabium.
 
 ```csharp
 var ui = context.Services.Get<SoftUiService>("softui");
