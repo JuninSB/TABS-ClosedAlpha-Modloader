@@ -35,6 +35,8 @@ O controle não cria um cooldown artificial por frame: a cadência de passos con
 
 Como proteção adicional contra o problema observado no Alpha, `ANTI-DESLIZAMENTO: EXIGIR PASSO ATIVO` observa a velocidade linear/angular dos rigidbodies `leftLeg` e `rightLeg`. Se o torso estiver deslizando e as duas pernas ficarem paradas por aproximadamente `0,12 s`, a intenção é suspensa por `0,08 s` para o solver nativo iniciar o próximo passo. Isso não afirma que a Steam usa esse teste diretamente; é uma adaptação explícita para a limitação do solver antigo, baseada nos componentes reais do Alpha.
 
+Para o caso de uma unidade realmente caída, o Tweaks instala um hook global em `PhysicsAnimation.Walk()`. Ele vale para todas as unidades, possuídas ou controladas pela IA. Quando `grounded` é falso ou o ângulo do torso passa de `fallAngle` (55 graus por padrão), o hook zera temporariamente `speed`, `turnMultiPlier` e `forwardDir`. O método continua sendo executado para não impedir a recuperação/levantada da unidade; apenas a locomoção horizontal fica bloqueada até ela recuperar apoio e postura. A opção correspondente é `BLOQUEAR MOVIMENTO QUANDO CAIDO`.
+
 Esses assistentes não substituem o `Walk()` nem inventam classes da Steam: eles complementam o solver que realmente existe nesta build.
 
 Isso é deliberadamente conservador: importar o `MovementHandler` ou o `Balance` da Steam seria incompatível com o runtime e os tipos do Alpha. O próximo aprimoramento seguro é um solver opcional de tração/apoio usando apenas os rigidbodies de perna já presentes no Alpha, com raycasts que ignorem os próprios colliders da unidade.
