@@ -34,6 +34,8 @@ namespace Tweaks
             tab.AddSlider("edge-speed", "EDGE CAMERA SPEED", ParseFloat(settings.Get("edgeSpeed", "8"), 8f), 1f, 30f, value => Set("edgeSpeed", value.ToString("0.0")));
             tab.AddToggle("nearest-unit", "F CONTROLS UNIT NEAREST TO SCREEN CENTER", settings.GetBool("nearestUnit", true), value => Set("nearestUnit", value));
             tab.AddToggle("advanced-physics", "FISICA AVANCADA NA POSSE DA UNIDADE", settings.GetBool("advancedPhysics", true), value => Set("advancedPhysics", value));
+            tab.AddToggle("velocity-assist", "IMPULSO DISTRIBUIDO NOS RIGIDBODIES", settings.GetBool("velocityAssist", true), value => Set("velocityAssist", value));
+            tab.AddToggle("balance-assist", "CORRECAO LEVE DE EQUILIBRIO", settings.GetBool("balanceAssist", true), value => Set("balanceAssist", value));
             tab.AddLabel("HOLD LEFT MOUSE: 0.1x   |   HOLD G: 0.01x   |   F: CONTROL UNIT", 11);
         }
         void Update()
@@ -136,6 +138,26 @@ namespace Tweaks
             controlledUnit.SetIdle(false);
             if (forwardField != null) forwardField.SetValue(controlledUnit.anim, possessionMoveDirection);
             if (turnField != null) turnField.SetValue(controlledUnit.anim, 1f);
+            ApplyModernPhysicsAssist(controlledUnit.anim, possessionMoveDirection, torso, flags);
+        }
+        void ApplyModernPhysicsAssist(PhysicsAnimation anim, Vector3 move, Rigidbody torso, BindingFlags flags)
+        {
+            if (anim == null) return;
+            if (settings.GetBool("velocityAssist", true))
+            {
+                FieldInfo speedField = typeof(PhysicsAnimation).GetField("speed", flags); float speed = speedField == null ? 1f : (float)speedField.GetValue(anim);
+                float strength = ParseFloat(settings.Get("velocityAssistStrength", "0.18"), .18f);
+                Vector3 impulse = move * speed * strength * Time.fixedDeltaTime;
+                Rigidbody[] rigs = anim.GetComponentsInChildren<Rigidbody>();
+                for (int i = 0; i < rigs.Length; i++) if (rigs[i] != null && !rigs[i].isKinematic) rigs[i].AddForce(impulse, ForceMode.VelocityChange);
+            }
+            if (!settings.GetBool("balanceAssist", true) || torso == null) return;
+            FieldInfo leftField = typeof(PhysicsAnimation).GetField("leftLeg", flags); FieldInfo rightField = typeof(PhysicsAnimation).GetField("rightLeg", flags);
+            Rigidbody left = leftField == null ? null : leftField.GetValue(anim) as Rigidbody; Rigidbody right = rightField == null ? null : rightField.GetValue(anim) as Rigidbody;
+            if (left == null || right == null) return;
+            Vector3 support = (left.worldCenterOfMass + right.worldCenterOfMass) * .5f; Vector3 error = Vector3.ProjectOnPlane(support - torso.worldCenterOfMass, Vector3.up);
+            if (error.sqrMagnitude < .0025f) return;
+            float balanceStrength = ParseFloat(settings.Get("balanceAssistStrength", "0.035"), .035f); torso.AddForce(error * balanceStrength, ForceMode.VelocityChange);
         }
         void PrimeControlCooldowns()
         {
