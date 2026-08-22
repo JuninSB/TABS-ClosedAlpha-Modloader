@@ -22,6 +22,7 @@ namespace SoftUI
         readonly IModLogger log;
         readonly List<SoftWindow> windows = new List<SoftWindow>();
         readonly GameObject hostObject;
+        public ModMenuService ModMenu { get; private set; }
         internal SoftUiService(IModLogger log)
         {
             this.log = log;
@@ -36,6 +37,7 @@ namespace SoftUI
             scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
             scaler.referenceResolution = new Vector2(1280f, 720f);
             hostObject.AddComponent<GraphicRaycaster>();
+            ModMenu = new ModMenuService(this, log);
         }
         public SoftWindow CreateWindow(string id, string title)
         {
@@ -43,7 +45,8 @@ namespace SoftUI
             windows.Add(window);
             return window;
         }
-        internal void Tick() { for (int i = 0; i < windows.Count; i++) windows[i].Tick(); }
+        public void InstallMainMenuButton(GameObject mainMenuRoot) { if (ModMenu != null) ModMenu.InstallMainMenuButton(mainMenuRoot); }
+        internal void Tick() { for (int i = 0; i < windows.Count; i++) windows[i].Tick(); if (ModMenu != null) ModMenu.Tick(); }
         internal void Destroy() { for (int i = 0; i < windows.Count; i++) windows[i].Destroy(); windows.Clear(); if (hostObject != null) UnityEngine.Object.Destroy(hostObject); }
     }
 
@@ -51,6 +54,64 @@ namespace SoftUI
     {
         public SoftUiService Service;
         void Update() { if (Service != null) Service.Tick(); }
+    }
+
+    /// <summary>Shared in-game Mods menu. Mods register pages instead of modifying the TABS Options scene.</summary>
+    public sealed class ModMenuService
+    {
+        sealed class Entry { public string Id; public string Title; public Action<SoftTab> Build; public SoftWindow Window; public bool Added; }
+        readonly SoftUiService service; readonly IModLogger log; readonly List<Entry> entries = new List<Entry>();
+        GameObject mainMenuRoot; GameObject modsButton; SoftWindow listWindow; SoftTab listPage; bool opened;
+        internal ModMenuService(SoftUiService service, IModLogger log) { this.service = service; this.log = log; }
+        public void Register(string id, string title, Action<SoftTab> build)
+        {
+            for (int i = 0; i < entries.Count; i++) if (String.Equals(entries[i].Id, id, StringComparison.OrdinalIgnoreCase)) { entries[i].Title = title; entries[i].Build = build; return; }
+            Entry entry = new Entry { Id = id, Title = title, Build = build }; entries.Add(entry);
+            if (listPage != null) AddEntry(entry);
+        }
+        internal void InstallMainMenuButton(GameObject root)
+        {
+            if (root == null || root == mainMenuRoot) return;
+            if (modsButton != null) UnityEngine.Object.Destroy(modsButton);
+            mainMenuRoot = root;
+            Button sample = root.GetComponentInChildren<Button>(true);
+            if (sample == null) { log.Warning("SoftUI could not find a native main-menu button for Mods."); return; }
+            modsButton = CreateButton("MODS", sample, sample.transform.parent); modsButton.name = "SoftUI Mods Button";
+            modsButton.GetComponent<Button>().onClick.AddListener(OpenMenu);
+            log.Info("Mods button added to the native main menu.");
+        }
+        GameObject CreateButton(string label, Button style, Transform parent)
+        {
+            GameObject obj = new GameObject("SoftUI Button " + label); obj.transform.SetParent(parent, false); RectTransform rect = obj.AddComponent<RectTransform>(); rect.localScale = Vector3.one;
+            LayoutElement layout = obj.AddComponent<LayoutElement>(); layout.minWidth = 170f; layout.preferredWidth = 190f; layout.minHeight = 44f; layout.preferredHeight = 44f;
+            Image image = obj.AddComponent<Image>(); Image sourceImage = style == null ? null : style.GetComponent<Image>(); if (sourceImage != null) { image.sprite = sourceImage.sprite; image.material = sourceImage.material; image.type = sourceImage.type; image.color = sourceImage.color; }
+            Button button = obj.AddComponent<Button>(); if (style != null) button.colors = style.colors; button.targetGraphic = image;
+            GameObject textObj = new GameObject("Text"); textObj.transform.SetParent(obj.transform, false); RectTransform textRect = textObj.AddComponent<RectTransform>(); textRect.anchorMin = Vector2.zero; textRect.anchorMax = Vector2.one; textRect.offsetMin = new Vector2(8f, 0f); textRect.offsetMax = new Vector2(-8f, 0f);
+            Text sourceText = style == null ? null : style.GetComponentInChildren<Text>(true); Text text = textObj.AddComponent<Text>(); text.font = sourceText == null ? Resources.GetBuiltinResource<Font>("Arial.ttf") : sourceText.font; text.fontSize = sourceText == null ? 15 : sourceText.fontSize; text.color = sourceText == null ? Color.white : sourceText.color; text.alignment = TextAnchor.MiddleCenter; text.horizontalOverflow = HorizontalWrapMode.Overflow; text.text = label;
+            return obj;
+        }
+        void OpenMenu()
+        {
+            opened = true; if (mainMenuRoot != null) mainMenuRoot.SetActive(false);
+            if (listWindow == null) { listWindow = service.CreateWindow("mods-menu", "MODS"); listPage = listWindow.AddTab("mods", "MODS"); listPage.AddLabel("INSTALLED MODS", 22); listPage.AddButton("BACK TO GAME", CloseMenu); }
+            for (int i = 0; i < entries.Count; i++) AddEntry(entries[i]);
+            listWindow.SetVisible(true);
+        }
+        void AddEntry(Entry entry)
+        {
+            if (entry.Added || listPage == null) return; entry.Added = true; listPage.AddButton(entry.Title.ToUpperInvariant(), () => OpenEntry(entry));
+        }
+        void OpenEntry(Entry entry)
+        {
+            if (listWindow != null) listWindow.SetVisible(false);
+            if (entry.Window == null) { entry.Window = service.CreateWindow("mod-settings-" + entry.Id, entry.Title); SoftTab page = entry.Window.AddTab("settings", "SETTINGS"); if (entry.Build != null) entry.Build(page); page.AddButton("BACK TO MODS", () => { entry.Window.SetVisible(false); if (listWindow != null) listWindow.SetVisible(true); }); }
+            entry.Window.SetVisible(true);
+        }
+        void CloseMenu()
+        {
+            opened = false; if (listWindow != null) listWindow.SetVisible(false); for (int i = 0; i < entries.Count; i++) if (entries[i].Window != null) entries[i].Window.SetVisible(false); if (mainMenuRoot != null) mainMenuRoot.SetActive(true);
+        }
+        internal void Tick() { }
     }
 
     public sealed class SoftWindow
