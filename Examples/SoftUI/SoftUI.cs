@@ -65,6 +65,7 @@ namespace SoftUI
         public string Id { get; private set; }
         public bool IsVisible { get { return root != null && root.activeSelf; } }
         public Transform Transform { get { return root.transform; } }
+        public void SetVisible(bool visible) { if (root != null) root.SetActive(visible); }
 
         internal SoftWindow(string id, string title, Transform canvas, IModLogger log)
         {
@@ -77,6 +78,33 @@ namespace SoftUI
             root.SetActive(false);
         }
         public SoftWindow BindTo(Func<bool> predicate) { visibleWhen = predicate; return this; }
+        /// <summary>Reuses the native TABS canvas and visual theme for this window.</summary>
+        public SoftWindow AttachToNative(Transform parent, GameObject styleSource)
+        {
+            if (parent != null) root.transform.SetParent(parent, false);
+            Image background = root.GetComponent<Image>();
+            if (background != null) background.color = new Color(1f, 1f, 1f, 0f);
+            if (styleSource != null) ApplyNativeTheme(styleSource);
+            return this;
+        }
+        void ApplyNativeTheme(GameObject source)
+        {
+            Text sampleText = source.GetComponentInChildren<Text>(true);
+            if (sampleText != null)
+            {
+                Text[] texts = root.GetComponentsInChildren<Text>(true);
+                for (int i = 0; i < texts.Length; i++) { texts[i].font = sampleText.font; texts[i].color = sampleText.color; }
+            }
+            Button sampleButton = source.GetComponentInChildren<Button>(true);
+            if (sampleButton != null)
+            {
+                ColorBlock colors = sampleButton.colors;
+                Button[] buttonsInWindow = root.GetComponentsInChildren<Button>(true);
+                for (int i = 0; i < buttonsInWindow.Length; i++) buttonsInWindow[i].colors = colors;
+                Image[] images = root.GetComponentsInChildren<Image>(true);
+                for (int i = 0; i < images.Length; i++) if (images[i].gameObject != root) images[i].color = colors.normalColor;
+            }
+        }
         public SoftTab AddTab(string id, string label)
         {
             var page = Make("Tab " + id, content.transform); page.SetActive(false); page.AddComponent<VerticalLayoutGroup>().spacing = 8; page.GetComponent<VerticalLayoutGroup>().childForceExpandHeight = false; pages[id] = page;
