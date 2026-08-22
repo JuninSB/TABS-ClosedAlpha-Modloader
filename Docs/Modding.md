@@ -53,6 +53,24 @@ public sealed class MeuComponente : MonoBehaviour { void Update() { } }
 - `Patches`: `Prefix`, `Postfix` e `Patch` sobre um `MethodBase`, usando Harmony incluído pelo BepInEx.
 - `Game`: objetos e APIs confirmados desta build: `Units`, `GetUnitDefinition`, `LoadBuiltinUnit`, `LoadWorld`, `Battle`, `Mode`, `Find<T>` e `PrivateField`.
 
+## SoftUI
+
+`SoftUI` é um mod-library carregado antes dos mods que dependem dele. Declare `"softui"` no manifesto e referencie `Examples/SoftUI/bin/.../SoftUI.dll` ao compilar. Obtenha o serviço com `context.Services.Get<SoftUiService>("softui")`.
+
+```csharp
+var ui = context.Services.Get<SoftUiService>("softui");
+var window = ui.CreateWindow("my-mod", "Meu Mod")
+    .BindTo(() => MainMenuHandler.Instance != null &&
+        MainMenuHandler.Instance.CurrentMenuState.ToString() == "Options");
+var tab = window.AddTab("general", "General");
+tab.AddToggle("enabled", "Ativo", true, value => { });
+tab.AddSlider("scale", "Scale", 1f, 0.5f, 2f, value => { });
+tab.AddDropdown("mode", "Mode", new[] { "Low", "High" }, 0, value => { });
+tab.AddButton("Apply", () => { });
+```
+
+O `BindTo` é importante: a janela é criada no canvas próprio da SoftUI, mas só fica ativa quando a tela correspondente está aberta. Isso evita sobrepor a UI de outras telas. A SoftUI usa `CanvasScaler` com resolução de referência 1280x720 e layouts Unity (`HorizontalLayoutGroup`, `VerticalLayoutGroup`, `LayoutElement`) para adaptar controles.
+
 ## TABS e patches
 
 Os tipos de `Assembly-CSharp.dll` podem ser usados diretamente. Exemplos confirmados: `UnitHandler`, `UnitDatabase`, `UnitLoaderHandler`, `LevelLoaderHandler`, `StartManager`, `GameMode`, `Projectile`, `ProjectileAttack`, `PhysicsAnimation` e `UnitUIInfo`.
