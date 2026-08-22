@@ -39,14 +39,27 @@ namespace Tabium
         }
 
         public void Shutdown() { context.Log.Info("Tabium shutdown."); }
-        void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) { ApplySettings(); }
+        void OnSceneLoaded(UnityEngine.SceneManagement.Scene scene, UnityEngine.SceneManagement.LoadSceneMode mode) { ApplySettings(); LogOptimizationDiagnostics(scene.name); }
+
+        void LogOptimizationDiagnostics(string sceneName)
+        {
+            try
+            {
+                Camera[] cameras = UnityEngine.Object.FindObjectsOfType<Camera>(); int occlusionCameras = 0; for (int i = 0; i < cameras.Length; i++) if (cameras[i].useOcclusionCulling) occlusionCameras++;
+                LODGroup[] lodGroups = UnityEngine.Object.FindObjectsOfType<LODGroup>(); Renderer[] renderers = UnityEngine.Object.FindObjectsOfType<Renderer>(); ParticleSystem[] particles = UnityEngine.Object.FindObjectsOfType<ParticleSystem>(); Light[] lights = UnityEngine.Object.FindObjectsOfType<Light>();
+                int staticBatchRenderers = 0; for (int i = 0; i < renderers.Length; i++) { PropertyInfo property = typeof(Renderer).GetProperty("isPartOfStaticBatch", BindingFlags.Instance | BindingFlags.Public); if (property != null && property.PropertyType == typeof(bool) && (bool)property.GetValue(renderers[i], null)) staticBatchRenderers++; }
+                int lightmaps = LightmapSettings.lightmaps == null ? 0 : LightmapSettings.lightmaps.Length;
+                context.Log.Info("Optimization diagnostics " + sceneName + ": cameras=" + cameras.Length + ", occlusionCulling=" + occlusionCameras + ", LODGroups=" + lodGroups.Length + ", staticBatchRenderers=" + staticBatchRenderers + ", particles=" + particles.Length + ", lights=" + lights.Length + ", lightmaps=" + lightmaps + ", AA=" + QualitySettings.antiAliasing + ", shadows=" + QualitySettings.shadows + ", shadowDistance=" + QualitySettings.shadowDistance + ", vSync=" + QualitySettings.vSyncCount);
+            }
+            catch (Exception e) { context.Log.Warning("Optimization diagnostics failed: " + e.Message); }
+        }
 
         void MaintainNativeMenus()
         {
             MainMenuHandler menu = MainMenuHandler.Instance;
             if (menu == null) menu = UnityEngine.Object.FindObjectOfType<MainMenuHandler>();
             if (menu == null) { if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuHandler not found yet; Mods button is waiting for the main menu."); menuDiagnosticsLogged = true; } return; }
-            if (softUiService != null) { GameObject mainMenuRoot = GetMenuObject(menu, "MainMenuObject"); if (mainMenuRoot != null) softUiService.InstallMainMenuButton(mainMenuRoot); else if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuObject is not initialized yet; Mods button is waiting."); menuDiagnosticsLogged = true; } }
+            if (softUiService != null) { GameObject mainMenuRoot = GetMenuObject(menu, "MainMenuObject"); if (mainMenuRoot != null) { softUiService.InstallMainMenuButton(mainMenuRoot); softUiService.SetMainMenuButtonVisible(mainMenuRoot.activeInHierarchy); } else if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuObject is not initialized yet; Mods button is waiting."); menuDiagnosticsLogged = true; } }
         }
 
         void BuildSettingsUi(SoftUiService softUi)
