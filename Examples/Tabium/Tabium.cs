@@ -15,6 +15,7 @@ namespace Tabium
         SoftWindow window;
         GameObject optionsRoot;
         GameObject hiddenNativeOptions;
+        bool lastOptionsState;
         readonly Dictionary<string, GameObject> nativeCategories = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         readonly List<GameObject> nativeTabButtons = new List<GameObject>();
         bool tabiumSelected;
@@ -42,6 +43,7 @@ namespace Tabium
             MainMenuHandler menu = MainMenuHandler.Instance;
             if (menu == null) return;
             bool optionsState = menu.CurrentMenuState == MainMenuHandler.MenuState.Options;
+            if (optionsState != lastOptionsState) { context.Log.Info("Settings screen state: " + (optionsState ? "Options" : "Other menu")); lastOptionsState = optionsState; }
             if (!optionsState)
             {
                 if (hiddenNativeOptions != null) { hiddenNativeOptions.SetActive(true); hiddenNativeOptions = null; }
