@@ -61,11 +61,13 @@ namespace SoftUI
         readonly Dictionary<string, GameObject> pages = new Dictionary<string, GameObject>();
         readonly Dictionary<string, GameObject> buttons = new Dictionary<string, GameObject>();
         Func<bool> visibleWhen;
+        bool manualVisibilitySet;
+        bool manualVisibility;
         string activeTab;
         public string Id { get; private set; }
         public bool IsVisible { get { return root != null && root.activeSelf; } }
         public Transform Transform { get { return root.transform; } }
-        public void SetVisible(bool visible) { if (root != null) root.SetActive(visible); }
+        public void SetVisible(bool visible) { manualVisibilitySet = true; manualVisibility = visible; if (root != null) root.SetActive(visible); }
 
         internal SoftWindow(string id, string title, Transform canvas, IModLogger log)
         {
@@ -116,7 +118,7 @@ namespace SoftUI
             return new SoftTab(page.transform, this, log);
         }
         public void SelectTab(string id) { if (!pages.ContainsKey(id)) return; foreach (var page in pages.Values) page.SetActive(false); pages[id].SetActive(true); activeTab = id; }
-        internal void Tick() { bool visible = visibleWhen == null || SafeVisible(); if (root.activeSelf != visible) root.SetActive(visible); }
+        internal void Tick() { bool visible = manualVisibilitySet ? manualVisibility : (visibleWhen == null || SafeVisible()); if (root.activeSelf != visible) root.SetActive(visible); }
         bool SafeVisible() { try { return visibleWhen(); } catch (Exception e) { log.Error("SoftUI visibility predicate failed", e); return false; } }
         internal void Destroy() { if (root != null) UnityEngine.Object.Destroy(root); }
         static GameObject Make(string name, Transform parent) { var obj = new GameObject(name); obj.transform.SetParent(parent, false); obj.AddComponent<RectTransform>(); return obj; }
