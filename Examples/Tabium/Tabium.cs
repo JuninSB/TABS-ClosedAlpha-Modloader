@@ -3,6 +3,8 @@ using System.Reflection;
 using TABSClosedAlpha;
 using SoftUI;
 using UnityEngine;
+using UnityEngine.UI;
+using System.Collections.Generic;
 
 namespace Tabium
 {
@@ -11,7 +13,10 @@ namespace Tabium
         ModContext context;
         ModSettings settings;
         SoftWindow window;
-        GameObject hiddenOptions;
+        GameObject optionsRoot;
+        readonly Dictionary<string, GameObject> nativeCategories = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
+        readonly List<GameObject> nativeTabButtons = new List<GameObject>();
+        bool tabiumSelected;
 
         public void Initialize(ModContext context)
         {
@@ -35,20 +40,19 @@ namespace Tabium
             MainMenuHandler menu = MainMenuHandler.Instance;
             if (menu == null) return;
             bool optionsState = IsNativeMenuOpen(menu, MainMenuHandler.MenuState.Options);
-            if (optionsState)
-            {
-                if (hiddenOptions == null && window != null && window.IsVisible) { OptionsUI ui = UnityEngine.Object.FindObjectOfType<OptionsUI>(); hiddenOptions = ui == null ? GetMenuObject(menu, "OptionsObject") : ui.gameObject; }
-                if (hiddenOptions != null) hiddenOptions.SetActive(false);
-            }
-            else if (hiddenOptions != null) { hiddenOptions.SetActive(true); hiddenOptions = null; }
+            if (!optionsState) { optionsRoot = null; nativeCategories.Clear(); tabiumSelected = false; return; }
+            GameObject root = GetMenuObject(menu, "OptionsObject");
+            if (root == null) { OptionsUI ui = UnityEngine.Object.FindObjectOfType<OptionsUI>(); root = ui == null ? null : ui.gameObject; }
+            if (root != null && root != optionsRoot) SetupNativeOptions(root);
+            ApplyNativeCategory();
         }
 
         void BuildSettingsUi(SoftUiService softUi)
         {
-            window = softUi.CreateWindow("tabium", "Tabium").BindTo(() => { MainMenuHandler menu = MainMenuHandler.Instance; return menu != null && IsNativeMenuOpen(menu, MainMenuHandler.MenuState.Options); });
+            window = softUi.CreateWindow("tabium", "Tabium").BindTo(() => { MainMenuHandler menu = MainMenuHandler.Instance; return tabiumSelected && menu != null && IsNativeMenuOpen(menu, MainMenuHandler.MenuState.Options); });
             SoftTab optimization = window.AddTab("optimization", "Optimization");
             optimization.AddLabel("Tabium performance profile", 20);
-            optimization.AddLabel("Controls are kept separate from the original 2016 layout.", 12);
+            optimization.AddLabel("Native TABS options are grouped beside this Tabium tab.", 12);
             optimization.AddToggle("effects", "Reduce SSAO, anti-aliasing, DOF and bloom", settings.GetBool("reduceEffects", true), value => { Set("reduceEffects", value); ApplySettings(); });
             optimization.AddToggle("shadows", "Disable realtime shadows", settings.GetBool("lowShadows", false), value => { Set("lowShadows", value); ApplySettings(); });
             optimization.AddToggle("frame", "Use stable 60 FPS limit", settings.GetBool("frameLimit", true), value => { Set("frameLimit", value); ApplySettings(); });
@@ -81,6 +85,52 @@ namespace Tabium
 
         }
 
+        void SetupNativeOptions(GameObject root)
+        {
+            optionsRoot = root;
+            nativeCategories.Clear();
+            nativeCategories["Video"] = FindNamed(root.transform, "Video");
+            nativeCategories["Audio"] = FindNamed(root.transform, "AUDIO");
+            nativeCategories["Gameplay"] = FindNamed(root.transform, "game");
+            GameObject styleSource = null;
+            foreach (GameObject item in nativeCategories.Values) if (item != null) { styleSource = item; break; }
+            if (window != null) window.AttachToNative(root.transform, styleSource);
+            for (int i = 0; i < nativeTabButtons.Count; i++) if (nativeTabButtons[i] != null) UnityEngine.Object.Destroy(nativeTabButtons[i]);
+            nativeTabButtons.Clear();
+            Button sample = root.GetComponentInChildren<Button>(true);
+            if (sample == null) { context.Log.Warning("Native options has no Button; keeping original selector."); return; }
+            string[] labels = { "Video", "Audio", "Gameplay", "Tabium" };
+            for (int i = 0; i < labels.Length; i++)
+            {
+                GameObject copy = UnityEngine.Object.Instantiate(sample.gameObject, sample.transform.parent);
+                copy.name = "SoftUI Native Tab " + labels[i];
+                RectTransform rect = copy.GetComponent<RectTransform>();
+                if (rect != null) { rect.anchoredPosition += new Vector2((i - 1) * 150f, 55f); rect.SetAsLastSibling(); }
+                Button button = copy.GetComponent<Button>();
+                if (button != null) { button.onClick.RemoveAllListeners(); string id = labels[i]; button.onClick.AddListener(() => SelectNativeCategory(id)); }
+                Text text = copy.GetComponentInChildren<Text>(true); if (text != null) text.text = labels[i];
+                nativeTabButtons.Add(copy);
+            }
+            context.Log.Info("Native options categories detected: Video, AUDIO, game; added Tabium category.");
+            SelectNativeCategory("Video");
+        }
+
+        void SelectNativeCategory(string name)
+        {
+            tabiumSelected = String.Equals(name, "Tabium", StringComparison.OrdinalIgnoreCase);
+            foreach (KeyValuePair<string, GameObject> item in nativeCategories) if (item.Value != null) item.Value.SetActive(!tabiumSelected && String.Equals(item.Key, name, StringComparison.OrdinalIgnoreCase));
+            if (window != null) window.SetVisible(tabiumSelected);
+        }
+
+        void ApplyNativeCategory() { if (optionsRoot == null) return; if (tabiumSelected) { if (window != null) window.SetVisible(true); } }
+
+        static GameObject FindNamed(Transform root, string wanted)
+        {
+            if (String.Equals(root.name, wanted, StringComparison.OrdinalIgnoreCase)) return root.gameObject;
+            for (int i = 0; i < root.childCount; i++) { GameObject found = FindNamed(root.GetChild(i), wanted); if (found != null) return found; }
+            return null;
+        }
+
         void SaveAndBack()
         {
             if (Options.Instance != null) Options.Instance.SubmitPrefs();
@@ -99,6 +149,7 @@ namespace Tabium
             GameObject menuObject = method == null ? null : method.Invoke(menu, new object[] { state }) as GameObject;
             return menuObject != null && menuObject.activeInHierarchy;
         }
+
 
         void ApplySettings()
         {
