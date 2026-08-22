@@ -28,8 +28,10 @@ Quando `FISICA AVANCADA NA POSSE DA UNIDADE` está ligada, o mod continua usando
 
 Também foram adicionados dois assistentes opcionais, controlados no menu do Tweaks:
 
-- `IMPULSO DISTRIBUIDO NOS RIGIDBODIES` aplica um impulso pequeno com `ForceMode.VelocityChange` a todos os rigidbodies dinâmicos da unidade, aproximando o modelo do `MovementHandler` moderno sem mover o `Transform`.
+- `IMPULSO DISTRIBUIDO NOS RIGIDBODIES` é opcional e vem desligado por padrão, porque o `PhysicsAnimation.Walk()` do Alpha já injeta a força de caminhada. Quando ativado, aplica um impulso pequeno com `ForceMode.VelocityChange` a todos os rigidbodies dinâmicos da unidade, aproximando o modelo do `MovementHandler` moderno sem mover o `Transform`.
 - `CORRECAO LEVE DE EQUILIBRIO` usa os rigidbodies `leftLeg`/`rightLeg` reais do Alpha e aplica uma correção horizontal no torso em direção ao centro de apoio. A intensidade é baixa e pode ser desligada se uma unidade especial não reagir bem.
+
+O controle não cria um cooldown artificial por frame: a cadência de passos continua sendo a do `PhysicsAnimation.Walk()` e seus campos `stepCounter`/`legSpeed`. O Tweaks apenas impede intenção no ar, reduz velocidade lateral residual e mantém a coluna próxima da vertical durante a posse.
 
 Esses assistentes não substituem o `Walk()` nem inventam classes da Steam: eles complementam o solver que realmente existe nesta build.
 
