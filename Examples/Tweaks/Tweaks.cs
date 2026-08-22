@@ -10,21 +10,24 @@ namespace Tweaks
 {
     public sealed class Main : IMod
     {
+        static Main activeInstance; static readonly FieldInfo ForwardDirField = typeof(PhysicsAnimation).GetField("forwardDir", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); static readonly FieldInfo GroundedField = typeof(PhysicsAnimation).GetField("grounded", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); static readonly FieldInfo SpeedField = typeof(PhysicsAnimation).GetField("speed", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic); static readonly FieldInfo TurnField = typeof(PhysicsAnimation).GetField("turnMultiPlier", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        sealed class FallenWalkState { public float speed; public float turn; }
         ModContext context; ModSettings settings; GameObject prompt; GameObject controlHud; Text controlHudText; Text crosshairText; GameObject aimTargetObject; bool wasPlaying; bool pausedAfterFinish; float baseFixedDelta;
         UnitHandler controlledUnit; UnitHandler originalTarget; UnitHandler pendingPossessionUnit; Camera originalCamera; Camera controlCamera; GameObject possessionCameraObject; GameObject movementTargetObject; Vector3 cameraOffset; Vector3 controlMoveVelocity; Vector3 possessionMoveDirection; float cameraYaw; float cameraPitch; bool originalCameraWasEnabled; AudioListener[] originalListeners; bool[] originalListenerStates; bool controlling; bool advancedPhysicsActive; bool firstPerson; bool holdingPossess; bool originalIdle; bool originalAttacking;
         Behaviour[] disabledCameraScripts; bool[] disabledCameraStates; Canvas[] hiddenCanvases; bool[] hiddenCanvasStates; Rigidbody[] advancedBodies; RigidbodyInterpolation[] advancedInterpolation; CollisionDetectionMode[] advancedCollision; bool controlledUnitWasEnabled; bool cursorWasVisible; CursorLockMode cursorLockState; float legStillTime; float stepReleaseTime;
         public void Initialize(ModContext context)
         {
-            this.context = context; settings = context.Settings; baseFixedDelta = Time.fixedDeltaTime;
+            this.context = context; activeInstance = this; settings = context.Settings; baseFixedDelta = Time.fixedDeltaTime;
             SoftUiService softUi = context.Services.Get<SoftUiService>("softui");
             if (softUi == null) { context.Log.Error("SoftUI dependency was not loaded."); return; }
             softUi.ModMenu.Register("tweaks", "Tweaks", BuildSettings);
+            BindingFlags patchFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic; context.Patches.Patch(typeof(PhysicsAnimation).GetMethod("Walk", patchFlags), typeof(Main).GetMethod("BeforePhysicsWalk", BindingFlags.Static | BindingFlags.NonPublic), typeof(Main).GetMethod("AfterPhysicsWalk", BindingFlags.Static | BindingFlags.NonPublic));
             context.Events.Update += Update;
             context.Events.FixedUpdate += FixedControlPhysics;
             context.Events.SceneLoaded += (scene, mode) => { ExitControl(); wasPlaying = false; pausedAfterFinish = false; HidePrompt(); RestoreTime(); };
             context.Log.Info("Tweaks initialized: mouse slow motion, G super slow motion, battle-finish pause, edge camera and F unit control.");
         }
-        public void Shutdown() { context.Events.FixedUpdate -= FixedControlPhysics; ExitControl(); RestoreTime(); HidePrompt(); }
+        public void Shutdown() { context.Events.FixedUpdate -= FixedControlPhysics; context.Patches.UnpatchAll(); activeInstance = null; ExitControl(); RestoreTime(); HidePrompt(); }
         void BuildSettings(SoftTab tab)
         {
             tab.AddLabel("TWEAKS", 20);
@@ -37,6 +40,7 @@ namespace Tweaks
             tab.AddToggle("velocity-assist", "IMPULSO DISTRIBUIDO NOS RIGIDBODIES", settings.GetBool("velocityAssist", false), value => Set("velocityAssist", value));
             tab.AddToggle("balance-assist", "CORRECAO LEVE DE EQUILIBRIO", settings.GetBool("balanceAssist", true), value => Set("balanceAssist", value));
             tab.AddToggle("step-gate", "ANTI-DESLIZAMENTO: EXIGIR PASSO ATIVO", settings.GetBool("stepGate", true), value => Set("stepGate", value));
+            tab.AddToggle("fallen-lock", "BLOQUEAR MOVIMENTO QUANDO CAIDO", settings.GetBool("fallenMovementLock", true), value => Set("fallenMovementLock", value));
             tab.AddLabel("HOLD LEFT MOUSE: 0.1x   |   HOLD G: 0.01x   |   F: CONTROL UNIT", 11);
         }
         void Update()
@@ -116,6 +120,20 @@ namespace Tweaks
             if (controlledUnit != null && controlledUnit.anim != null && controlledUnit.anim.torso != null) return controlledUnit.anim.torso.worldCenterOfMass;
             if (controlledUnit != null && controlledUnit.ownBox != null) return controlledUnit.ownBox.position;
             return controlledUnit == null ? Vector3.zero : controlledUnit.transform.position;
+        }
+        static bool IsFallen(PhysicsAnimation anim)
+        {
+            if (activeInstance == null || anim == null || !activeInstance.settings.GetBool("fallenMovementLock", true) || anim.torso == null) return false;
+            bool grounded = GroundedField == null || (bool)GroundedField.GetValue(anim); if (!grounded) return true;
+            float fallAngle = ParseFloat(activeInstance.settings.Get("fallAngle", "55"), 55f); return Vector3.Angle(anim.torso.transform.up, Vector3.up) >= fallAngle;
+        }
+        static void BeforePhysicsWalk(PhysicsAnimation __instance, ref FallenWalkState __state)
+        {
+            __state = null; if (!IsFallen(__instance)) return; __state = new FallenWalkState(); __state.speed = SpeedField == null ? 0f : (float)SpeedField.GetValue(__instance); __state.turn = TurnField == null ? 1f : (float)TurnField.GetValue(__instance); if (SpeedField != null) SpeedField.SetValue(__instance, 0f); if (TurnField != null) TurnField.SetValue(__instance, 0f); if (ForwardDirField != null) ForwardDirField.SetValue(__instance, Vector3.zero);
+        }
+        static void AfterPhysicsWalk(PhysicsAnimation __instance, FallenWalkState __state)
+        {
+            if (__state == null) return; if (SpeedField != null) SpeedField.SetValue(__instance, __state.speed); if (TurnField != null) TurnField.SetValue(__instance, __state.turn);
         }
         void FixedControlPhysics()
         {
