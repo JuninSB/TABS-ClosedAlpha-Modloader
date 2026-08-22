@@ -17,7 +17,7 @@ namespace ExampleMod
         {
             this.context = context;
             context.Log.Info("ExampleMod initialized.");
-            context.Settings.GetBool("showOverlay", true);
+            context.Settings.GetBool("showOverlay", false);
             context.Services.Register("example.greeting", new GreetingService());
             context.Commands.Register("example.ping", args => context.Log.Info("pong"));
             context.Keys.Register(KeyCode.F8, ToggleOverlay);
@@ -43,7 +43,7 @@ namespace ExampleMod
         void OnSceneLoaded(Scene scene, LoadSceneMode mode)
         {
             context.Log.Info("Scene loaded: " + scene.name + " (" + mode + ")");
-            if (context.Settings.GetBool("showOverlay", true)) CreateOverlay();
+            if (context.Settings.GetBool("showOverlay", false)) CreateOverlay();
             BoostFirstBattleUnit();
         }
 
