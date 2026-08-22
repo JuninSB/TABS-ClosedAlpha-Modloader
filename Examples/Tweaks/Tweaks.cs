@@ -12,7 +12,7 @@ namespace Tweaks
     {
         ModContext context; ModSettings settings; GameObject prompt; GameObject controlHud; Text controlHudText; Text crosshairText; GameObject aimTargetObject; bool wasPlaying; bool pausedAfterFinish; float baseFixedDelta;
         UnitHandler controlledUnit; UnitHandler originalTarget; UnitHandler pendingPossessionUnit; Camera originalCamera; Camera controlCamera; GameObject possessionCameraObject; GameObject movementTargetObject; Vector3 cameraOffset; Vector3 controlMoveVelocity; Vector3 possessionMoveDirection; float cameraYaw; float cameraPitch; bool originalCameraWasEnabled; AudioListener[] originalListeners; bool[] originalListenerStates; bool controlling; bool advancedPhysicsActive; bool firstPerson; bool holdingPossess; bool originalIdle; bool originalAttacking;
-        Behaviour[] disabledCameraScripts; bool[] disabledCameraStates; Canvas[] hiddenCanvases; bool[] hiddenCanvasStates; Rigidbody[] advancedBodies; RigidbodyInterpolation[] advancedInterpolation; CollisionDetectionMode[] advancedCollision; bool controlledUnitWasEnabled; bool cursorWasVisible; CursorLockMode cursorLockState;
+        Behaviour[] disabledCameraScripts; bool[] disabledCameraStates; Canvas[] hiddenCanvases; bool[] hiddenCanvasStates; Rigidbody[] advancedBodies; RigidbodyInterpolation[] advancedInterpolation; CollisionDetectionMode[] advancedCollision; bool controlledUnitWasEnabled; bool cursorWasVisible; CursorLockMode cursorLockState; float legStillTime; float stepReleaseTime;
         public void Initialize(ModContext context)
         {
             this.context = context; settings = context.Settings; baseFixedDelta = Time.fixedDeltaTime;
@@ -36,6 +36,7 @@ namespace Tweaks
             tab.AddToggle("advanced-physics", "FISICA AVANCADA NA POSSE DA UNIDADE", settings.GetBool("advancedPhysics", true), value => Set("advancedPhysics", value));
             tab.AddToggle("velocity-assist", "IMPULSO DISTRIBUIDO NOS RIGIDBODIES", settings.GetBool("velocityAssist", false), value => Set("velocityAssist", value));
             tab.AddToggle("balance-assist", "CORRECAO LEVE DE EQUILIBRIO", settings.GetBool("balanceAssist", true), value => Set("balanceAssist", value));
+            tab.AddToggle("step-gate", "ANTI-DESLIZAMENTO: EXIGIR PASSO ATIVO", settings.GetBool("stepGate", true), value => Set("stepGate", value));
             tab.AddLabel("HOLD LEFT MOUSE: 0.1x   |   HOLD G: 0.01x   |   F: CONTROL UNIT", 11);
         }
         void Update()
@@ -127,6 +128,8 @@ namespace Tweaks
             // fighting it with an artificial transform or target teleport.
             FieldInfo groundedField = typeof(PhysicsAnimation).GetField("grounded", flags); bool grounded = groundedField == null || (bool)groundedField.GetValue(controlledUnit.anim); if (!grounded) { controlledUnit.SetIdle(true); if (forwardField != null) forwardField.SetValue(controlledUnit.anim, Vector3.zero); return; }
             Rigidbody torso = controlledUnit.anim.torso;
+            controlledUnit.target = null;
+            if (ShouldGateStationaryLegs(controlledUnit.anim, torso, flags)) { controlledUnit.SetIdle(true); if (forwardField != null) forwardField.SetValue(controlledUnit.anim, Vector3.zero); return; }
             if (torso != null)
             {
                 // Keep the Alpha's torso upright while allowing the native leg
@@ -137,12 +140,24 @@ namespace Tweaks
                 if (possessionMoveDirection.sqrMagnitude < .001f) torso.AddForce(-horizontalVelocity * .32f, ForceMode.VelocityChange);
                 else { Vector3 direction = possessionMoveDirection.normalized; Vector3 sidewaysVelocity = horizontalVelocity - Vector3.Project(horizontalVelocity, direction); torso.AddForce(-sidewaysVelocity * .20f, ForceMode.VelocityChange); }
             }
-            controlledUnit.target = null;
             if (possessionMoveDirection.sqrMagnitude < .001f) { controlledUnit.SetIdle(true); if (forwardField != null) forwardField.SetValue(controlledUnit.anim, Vector3.zero); return; }
             controlledUnit.SetIdle(false);
             if (forwardField != null) forwardField.SetValue(controlledUnit.anim, possessionMoveDirection);
             if (turnField != null) turnField.SetValue(controlledUnit.anim, 1f);
             ApplyModernPhysicsAssist(controlledUnit.anim, possessionMoveDirection, torso, flags);
+        }
+        bool ShouldGateStationaryLegs(PhysicsAnimation anim, Rigidbody torso, BindingFlags flags)
+        {
+            if (!settings.GetBool("stepGate", true) || anim == null || torso == null || possessionMoveDirection.sqrMagnitude < .001f) { legStillTime = 0f; stepReleaseTime = 0f; return false; }
+            FieldInfo leftField = typeof(PhysicsAnimation).GetField("leftLeg", flags); FieldInfo rightField = typeof(PhysicsAnimation).GetField("rightLeg", flags);
+            Rigidbody left = leftField == null ? null : leftField.GetValue(anim) as Rigidbody; Rigidbody right = rightField == null ? null : rightField.GetValue(anim) as Rigidbody;
+            if (left == null || right == null) { legStillTime = 0f; stepReleaseTime = 0f; return false; }
+            float threshold = ParseFloat(settings.Get("legMotionThreshold", "0.08"), .08f); float motion = left.velocity.sqrMagnitude + right.velocity.sqrMagnitude + left.angularVelocity.sqrMagnitude + right.angularVelocity.sqrMagnitude;
+            bool legsMoving = motion > threshold * threshold; Vector3 horizontal = Vector3.ProjectOnPlane(torso.velocity, Vector3.up); bool bodySliding = horizontal.sqrMagnitude > .04f;
+            if (legsMoving || !bodySliding) { legStillTime = 0f; stepReleaseTime = 0f; return false; }
+            legStillTime += Time.fixedDeltaTime; if (legStillTime < .12f) return false;
+            stepReleaseTime += Time.fixedDeltaTime; if (stepReleaseTime < .08f) return true;
+            legStillTime = 0f; stepReleaseTime = 0f; return false;
         }
         void ApplyModernPhysicsAssist(PhysicsAnimation anim, Vector3 move, Rigidbody torso, BindingFlags flags)
         {
