@@ -17,6 +17,7 @@ namespace Tabium
         GameObject hiddenNativeOptions;
         SoftUiService softUiService;
         bool menuDiagnosticsLogged;
+        string lastMenuState;
         bool lastOptionsState;
         readonly Dictionary<string, GameObject> nativeCategories = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         readonly List<GameObject> nativeTabButtons = new List<GameObject>();
@@ -59,7 +60,9 @@ namespace Tabium
             MainMenuHandler menu = MainMenuHandler.Instance;
             if (menu == null) menu = UnityEngine.Object.FindObjectOfType<MainMenuHandler>();
             if (menu == null) { if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuHandler not found yet; Mods button is waiting for the main menu."); menuDiagnosticsLogged = true; } return; }
-            if (softUiService != null) { GameObject mainMenuRoot = GetMenuObject(menu, "MainMenuObject"); if (mainMenuRoot != null) { softUiService.InstallMainMenuButton(mainMenuRoot); softUiService.SetMainMenuButtonVisible(mainMenuRoot.activeInHierarchy); } else if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuObject is not initialized yet; Mods button is waiting."); menuDiagnosticsLogged = true; } }
+            string stateName = menu.CurrentMenuState.ToString();
+            if (stateName != lastMenuState) { context.Log.Info("Main menu state: " + stateName); lastMenuState = stateName; }
+            if (softUiService != null) { GameObject mainMenuRoot = GetMenuObject(menu, "MainMenuObject"); if (mainMenuRoot != null) { softUiService.InstallMainMenuButton(mainMenuRoot); softUiService.SetMainMenuButtonVisible(menu.CurrentMenuState == MainMenuHandler.MenuState.Main); } else if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuObject is not initialized yet; Mods button is waiting."); menuDiagnosticsLogged = true; } }
         }
 
         void BuildSettingsUi(SoftUiService softUi)
