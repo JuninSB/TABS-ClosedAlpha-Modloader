@@ -1,0 +1,11 @@
+{
+  "id": "tweaks",
+  "name": "Tweaks",
+  "version": "1.0.0",
+  "apiVersion": "1.0",
+  "author": "JuninSB",
+  "description": "Small quality-of-life features for TABS Closed Alpha.",
+  "main": "Tweaks.dll",
+  "mainType": "Tweaks.Main",
+  "dependencies": ["softui"]
+}
