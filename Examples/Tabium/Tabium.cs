@@ -14,6 +14,7 @@ namespace Tabium
         ModSettings settings;
         SoftWindow window;
         GameObject optionsRoot;
+        GameObject hiddenNativeOptions;
         readonly Dictionary<string, GameObject> nativeCategories = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         readonly List<GameObject> nativeTabButtons = new List<GameObject>();
         bool tabiumSelected;
@@ -40,50 +41,57 @@ namespace Tabium
         {
             MainMenuHandler menu = MainMenuHandler.Instance;
             if (menu == null) return;
-            bool optionsState = IsNativeMenuOpen(menu, MainMenuHandler.MenuState.Options);
-            if (!optionsState) { optionsRoot = null; nativeCategories.Clear(); tabiumSelected = false; return; }
+            bool optionsState = menu.CurrentMenuState == MainMenuHandler.MenuState.Options;
+            if (!optionsState)
+            {
+                if (hiddenNativeOptions != null) { hiddenNativeOptions.SetActive(true); hiddenNativeOptions = null; }
+                if (window != null) window.SetVisible(false);
+                optionsRoot = null;
+                return;
+            }
             GameObject root = GetMenuObject(menu, "OptionsObject");
             if (root == null) { OptionsUI ui = UnityEngine.Object.FindObjectOfType<OptionsUI>(); root = ui == null ? null : ui.gameObject; }
-            if (root != null && root != optionsRoot) SetupNativeOptions(root);
-            ApplyNativeCategory();
+            if (root != null && hiddenNativeOptions == null) { hiddenNativeOptions = root; hiddenNativeOptions.SetActive(false); }
+            if (window != null) window.SetVisible(true);
         }
 
         void BuildSettingsUi(SoftUiService softUi)
         {
-            window = softUi.CreateWindow("tabium", "Tabium").BindTo(() => { MainMenuHandler menu = MainMenuHandler.Instance; return tabiumSelected && menu != null && IsNativeMenuOpen(menu, MainMenuHandler.MenuState.Options); });
-            SoftTab optimization = window.AddTab("optimization", "Optimization");
-            optimization.AddLabel("Tabium performance profile", 20);
-            optimization.AddLabel("Native TABS options are grouped beside this Tabium tab.", 12);
-            optimization.AddToggle("effects", "Reduce SSAO, anti-aliasing, DOF and bloom", settings.GetBool("reduceEffects", true), value => { Set("reduceEffects", value); ApplySettings(); });
-            optimization.AddToggle("shadows", "Disable realtime shadows", settings.GetBool("lowShadows", false), value => { Set("lowShadows", value); ApplySettings(); });
-            optimization.AddToggle("frame", "Use stable 60 FPS limit", settings.GetBool("frameLimit", true), value => { Set("frameLimit", value); ApplySettings(); });
-            optimization.AddButton("Apply now", ApplySettings);
-
-            SoftTab game = window.AddTab("game", "Game Settings");
-            game.AddLabel("Original TABS settings", 20);
-            game.AddLabel("These controls call the real Options singleton.", 12);
+            window = softUi.CreateWindow("tabs-settings", "Settings").BindTo(() => { MainMenuHandler menu = MainMenuHandler.Instance; return menu != null && menu.CurrentMenuState == MainMenuHandler.MenuState.Options; });
             Options existing = Options.Instance;
-            game.AddDropdown("language", "Language index", new[] { "0", "1", "2", "3" }, existing == null ? 0 : existing.Language, value => { if (Options.Instance != null) Options.Instance.SetLanguage(value); });
-            game.AddSlider("master", "Master volume", existing == null ? 1f : existing.MasterVolume, 0f, 1f, value => { if (Options.Instance != null) Options.Instance.SetMasterVolume(value); });
-            game.AddSlider("music", "Music volume", existing == null ? 1f : existing.MusicVolume, 0f, 1f, value => { if (Options.Instance != null) Options.Instance.SetMusicVolume(value); });
-            game.AddSlider("effects-volume", "Effects volume", existing == null ? 1f : existing.EffectsVolume, 0f, 1f, value => { if (Options.Instance != null) Options.Instance.SetEffectsVolume(value); });
-            game.AddSlider("fov", "Field of view", existing == null ? 60f : existing.Fov, 40f, 120f, value => { if (Options.Instance != null) Options.Instance.SetFov(value); });
-            game.AddSlider("sensitivity", "Sensitivity", existing == null ? 1f : existing.Sensitivity, 0.1f, 5f, value => { if (Options.Instance != null) Options.Instance.SetSensitivity(value); });
-            game.AddToggle("ssao", "SSAO", existing != null && existing.SSAO, value => { if (Options.Instance != null) Options.Instance.SetSSAO(value); });
-            game.AddToggle("anti-aliasing", "Anti-aliasing", existing != null && existing.AntiAliasing, value => { if (Options.Instance != null) Options.Instance.SetAntiAliasing(value); });
-            game.AddToggle("depth-of-field", "Depth of field", existing != null && existing.DepthOfField, value => { if (Options.Instance != null) Options.Instance.SetDepthOfField(value); });
-            game.AddToggle("bloom", "Bloom", existing != null && existing.Bloom, value => { if (Options.Instance != null) Options.Instance.SetBloom(value); });
-            game.AddToggle("invert-x", "Invert X", existing != null && existing.InvertedX, value => { if (Options.Instance != null) Options.Instance.SetInvertedX(value); });
-            game.AddToggle("invert-y", "Invert Y", existing != null && existing.InvertedY, value => { if (Options.Instance != null) Options.Instance.SetInvertedY(value); });
-            game.AddButton("Save and back", SaveAndBack);
+            SoftTab video = window.AddTab("video", "VIDEO");
+            video.AddLabel("VIDEO", 22);
+            video.AddSlider("fov", "FIELD OF VIEW", existing == null ? 60f : existing.Fov, 40f, 120f, value => { if (Options.Instance != null) Options.Instance.SetFov(value); });
+            video.AddToggle("ssao", "SSAO", existing != null && existing.SSAO, value => { if (Options.Instance != null) Options.Instance.SetSSAO(value); });
+            video.AddToggle("anti-aliasing", "ANTI-ALIASING", existing != null && existing.AntiAliasing, value => { if (Options.Instance != null) Options.Instance.SetAntiAliasing(value); });
+            video.AddToggle("depth-of-field", "DEPTH OF FIELD", existing != null && existing.DepthOfField, value => { if (Options.Instance != null) Options.Instance.SetDepthOfField(value); });
+            video.AddToggle("bloom", "BLOOM", existing != null && existing.Bloom, value => { if (Options.Instance != null) Options.Instance.SetBloom(value); });
+            video.AddSlider("shadowDistance", "SHADOW DISTANCE", ParseFloat(settings.Get("shadowDistance", "35"), 35f), 0f, 150f, value => { Set("shadowDistance", value.ToString("0")); ApplySettings(); });
 
-            SoftTab advanced = window.AddTab("advanced", "Advanced");
-            advanced.AddLabel("Old Unity 5.5 quality controls", 20);
+            SoftTab audio = window.AddTab("audio", "AUDIO");
+            audio.AddLabel("AUDIO", 22);
+            audio.AddSlider("master", "MASTER VOLUME", existing == null ? 1f : existing.MasterVolume, 0f, 1f, value => { if (Options.Instance != null) Options.Instance.SetMasterVolume(value); });
+            audio.AddSlider("music", "MUSIC VOLUME", existing == null ? 1f : existing.MusicVolume, 0f, 1f, value => { if (Options.Instance != null) Options.Instance.SetMusicVolume(value); });
+            audio.AddSlider("effects-volume", "EFFECTS VOLUME", existing == null ? 1f : existing.EffectsVolume, 0f, 1f, value => { if (Options.Instance != null) Options.Instance.SetEffectsVolume(value); });
+
+            SoftTab gameplay = window.AddTab("gameplay", "GAMEPLAY");
+            gameplay.AddLabel("GAMEPLAY", 22);
+            gameplay.AddDropdown("language", "LANGUAGE", new[] { "0", "1", "2", "3" }, existing == null ? 0 : existing.Language, value => { if (Options.Instance != null) Options.Instance.SetLanguage(value); });
+            gameplay.AddSlider("sensitivity", "SENSITIVITY", existing == null ? 1f : existing.Sensitivity, 0.1f, 5f, value => { if (Options.Instance != null) Options.Instance.SetSensitivity(value); });
+            gameplay.AddToggle("invert-x", "INVERTED X", existing != null && existing.InvertedX, value => { if (Options.Instance != null) Options.Instance.SetInvertedX(value); });
+            gameplay.AddToggle("invert-y", "INVERTED Y", existing != null && existing.InvertedY, value => { if (Options.Instance != null) Options.Instance.SetInvertedY(value); });
+            gameplay.AddButton("SAVE SETTINGS", SaveSettings);
+            gameplay.AddButton("BACK TO MENU", SaveAndBack);
+
+            SoftTab tabium = window.AddTab("tabium", "TABIUM");
+            tabium.AddLabel("TABIUM", 22);
+            tabium.AddLabel("PERFORMANCE OPTIONS", 13);
+            tabium.AddToggle("effects", "REDUCE EFFECTS", settings.GetBool("reduceEffects", true), value => { Set("reduceEffects", value); ApplySettings(); });
+            tabium.AddToggle("shadows", "DISABLE REALTIME SHADOWS", settings.GetBool("lowShadows", false), value => { Set("lowShadows", value); ApplySettings(); });
+            tabium.AddToggle("frame", "FRAME RATE LIMIT", settings.GetBool("frameLimit", true), value => { Set("frameLimit", value); ApplySettings(); });
             string[] frameRates = { "30", "60", "90", "120" };
-            advanced.AddDropdown("frameRate", "Target FPS", frameRates, FrameRateIndex(), value => { Set("frameRate", frameRates[value]); Set("frameLimit", true); ApplySettings(); });
-            advanced.AddSlider("shadowDistance", "Shadow distance", ParseFloat(settings.Get("shadowDistance", "35"), 35f), 0f, 150f, value => { Set("shadowDistance", value.ToString("0")); ApplySettings(); });
-            advanced.AddLabel("Changes are saved per mod in config.cfg.", 12);
-
+            tabium.AddDropdown("frameRate", "TARGET FPS", frameRates, FrameRateIndex(), value => { Set("frameRate", frameRates[value]); Set("frameLimit", true); ApplySettings(); });
+            tabium.AddButton("APPLY TABIUM", ApplySettings);
         }
 
         void SetupNativeOptions(GameObject root)
@@ -185,6 +193,8 @@ namespace Tabium
             for (int i = 0; i < root.childCount; i++) { GameObject found = FindNamed(root.GetChild(i), wanted); if (found != null) return found; }
             return null;
         }
+
+        void SaveSettings() { if (Options.Instance != null) Options.Instance.SubmitPrefs(); context.Log.Info("TABS settings saved."); }
 
         void SaveAndBack()
         {
