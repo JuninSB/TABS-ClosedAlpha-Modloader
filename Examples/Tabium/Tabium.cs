@@ -17,6 +17,7 @@ namespace Tabium
         readonly Dictionary<string, GameObject> nativeCategories = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         readonly List<GameObject> nativeTabButtons = new List<GameObject>();
         bool tabiumSelected;
+        GameObject nativeTabBar;
 
         public void Initialize(ModContext context)
         {
@@ -97,22 +98,76 @@ namespace Tabium
             if (window != null) window.AttachToNative(root.transform, styleSource);
             for (int i = 0; i < nativeTabButtons.Count; i++) if (nativeTabButtons[i] != null) UnityEngine.Object.Destroy(nativeTabButtons[i]);
             nativeTabButtons.Clear();
+            if (nativeTabBar != null) UnityEngine.Object.Destroy(nativeTabBar);
+            nativeTabBar = new GameObject("SoftUI Native Options Tabs");
+            nativeTabBar.transform.SetParent(root.transform, false);
+            RectTransform barRect = nativeTabBar.AddComponent<RectTransform>();
+            barRect.anchorMin = new Vector2(.10f, .04f); barRect.anchorMax = new Vector2(.90f, .04f);
+            barRect.pivot = new Vector2(.5f, .5f); barRect.sizeDelta = new Vector2(0f, 48f);
+            HorizontalLayoutGroup barLayout = nativeTabBar.AddComponent<HorizontalLayoutGroup>();
+            barLayout.spacing = 12f; barLayout.padding = new RectOffset(8, 8, 3, 3); barLayout.childForceExpandWidth = true; barLayout.childForceExpandHeight = true;
             Button sample = root.GetComponentInChildren<Button>(true);
             if (sample == null) { context.Log.Warning("Native options has no Button; keeping original selector."); return; }
+            HideOriginalCategoryButtons(root.transform);
             string[] labels = { "Video", "Audio", "Gameplay", "Tabium" };
             for (int i = 0; i < labels.Length; i++)
             {
-                GameObject copy = UnityEngine.Object.Instantiate(sample.gameObject, sample.transform.parent);
-                copy.name = "SoftUI Native Tab " + labels[i];
-                RectTransform rect = copy.GetComponent<RectTransform>();
-                if (rect != null) { rect.anchoredPosition += new Vector2((i - 1) * 150f, 55f); rect.SetAsLastSibling(); }
-                Button button = copy.GetComponent<Button>();
-                if (button != null) { button.onClick.RemoveAllListeners(); string id = labels[i]; button.onClick.AddListener(() => SelectNativeCategory(id)); }
-                Text text = copy.GetComponentInChildren<Text>(true); if (text != null) text.text = labels[i];
+                GameObject copy = CreateCleanTabButton(labels[i], nativeTabBar.transform, sample);
                 nativeTabButtons.Add(copy);
             }
             context.Log.Info("Native options categories detected: Video, AUDIO, game; added Tabium category.");
             SelectNativeCategory("Video");
+        }
+
+        GameObject CreateCleanTabButton(string label, Transform parent, Button style)
+        {
+            GameObject obj = new GameObject("SoftUI Native Tab " + label);
+            obj.transform.SetParent(parent, false);
+            RectTransform rect = obj.AddComponent<RectTransform>();
+            rect.localScale = Vector3.one;
+            LayoutElement element = obj.AddComponent<LayoutElement>();
+            element.minWidth = 150f; element.preferredWidth = 180f; element.flexibleWidth = 1f;
+            Image image = obj.AddComponent<Image>();
+            if (style != null)
+            {
+                Image sourceImage = style.GetComponent<Image>();
+                if (sourceImage != null) { image.sprite = sourceImage.sprite; image.material = sourceImage.material; image.type = sourceImage.type; image.color = sourceImage.color; }
+            }
+            Button button = obj.AddComponent<Button>();
+            if (style != null) button.colors = style.colors;
+            button.targetGraphic = image;
+            string id = label;
+            button.onClick.AddListener(() => SelectNativeCategory(id));
+            GameObject textObject = new GameObject("Label");
+            textObject.transform.SetParent(obj.transform, false);
+            RectTransform textRect = textObject.AddComponent<RectTransform>();
+            textRect.anchorMin = Vector2.zero; textRect.anchorMax = Vector2.one; textRect.offsetMin = new Vector2(8f, 0f); textRect.offsetMax = new Vector2(-8f, 0f);
+            Text sourceText = style == null ? null : style.GetComponentInChildren<Text>(true);
+            Text text = textObject.AddComponent<Text>();
+            text.font = sourceText == null ? Resources.GetBuiltinResource<Font>("Arial.ttf") : sourceText.font;
+            text.fontSize = sourceText == null ? 14 : sourceText.fontSize;
+            text.color = sourceText == null ? Color.white : sourceText.color;
+            text.alignment = TextAnchor.MiddleCenter;
+            text.horizontalOverflow = HorizontalWrapMode.Overflow;
+            text.verticalOverflow = VerticalWrapMode.Truncate;
+            text.text = label.ToUpperInvariant();
+            return obj;
+        }
+
+        void HideOriginalCategoryButtons(Transform root)
+        {
+            for (int i = 0; i < root.childCount; i++)
+            {
+                Transform child = root.GetChild(i);
+                Button button = child.GetComponent<Button>();
+                Text text = child.GetComponentInChildren<Text>(true);
+                if (button != null && text != null)
+                {
+                    string value = text.text == null ? "" : text.text.Trim();
+                    if (String.Equals(value, "Video", StringComparison.OrdinalIgnoreCase) || String.Equals(value, "Audio", StringComparison.OrdinalIgnoreCase) || String.Equals(value, "AUDIO", StringComparison.OrdinalIgnoreCase) || String.Equals(value, "Gameplay", StringComparison.OrdinalIgnoreCase) || String.Equals(value, "game", StringComparison.OrdinalIgnoreCase)) child.gameObject.SetActive(false);
+                }
+                HideOriginalCategoryButtons(child);
+            }
         }
 
         void SelectNativeCategory(string name)
@@ -122,7 +177,7 @@ namespace Tabium
             if (window != null) window.SetVisible(tabiumSelected);
         }
 
-        void ApplyNativeCategory() { if (optionsRoot == null) return; if (tabiumSelected) { if (window != null) window.SetVisible(true); } }
+        void ApplyNativeCategory() { if (optionsRoot == null) return; if (window != null) window.SetVisible(tabiumSelected); }
 
         static GameObject FindNamed(Transform root, string wanted)
         {
