@@ -15,6 +15,8 @@ namespace Tabium
         SoftWindow window;
         GameObject optionsRoot;
         GameObject hiddenNativeOptions;
+        SoftUiService softUiService;
+        bool menuDiagnosticsLogged;
         bool lastOptionsState;
         readonly Dictionary<string, GameObject> nativeCategories = new Dictionary<string, GameObject>(StringComparer.OrdinalIgnoreCase);
         readonly List<GameObject> nativeTabButtons = new List<GameObject>();
@@ -28,6 +30,7 @@ namespace Tabium
             context.Log.Info("Tabium optimization mod initialized.");
             var softUi = context.Services.Get<SoftUiService>("softui");
             if (softUi == null) { context.Log.Error("SoftUI dependency was not loaded."); return; }
+            softUiService = softUi;
             BuildSettingsUi(softUi);
             context.Events.SceneLoaded += OnSceneLoaded;
             context.Events.Update += MaintainNativeMenus;
@@ -41,24 +44,16 @@ namespace Tabium
         void MaintainNativeMenus()
         {
             MainMenuHandler menu = MainMenuHandler.Instance;
-            if (menu == null) return;
-            bool optionsState = menu.CurrentMenuState == MainMenuHandler.MenuState.Options;
-            if (optionsState != lastOptionsState) { context.Log.Info("Settings screen state: " + (optionsState ? "Options" : "Other menu")); lastOptionsState = optionsState; }
-            if (!optionsState)
-            {
-                if (hiddenNativeOptions != null) { hiddenNativeOptions.SetActive(true); hiddenNativeOptions = null; }
-                if (window != null) window.SetVisible(false);
-                optionsRoot = null;
-                return;
-            }
-            GameObject root = GetMenuObject(menu, "OptionsObject");
-            if (root == null) { OptionsUI ui = UnityEngine.Object.FindObjectOfType<OptionsUI>(); root = ui == null ? null : ui.gameObject; }
-            if (root != null && hiddenNativeOptions == null) { hiddenNativeOptions = root; hiddenNativeOptions.SetActive(false); }
-            if (window != null) window.SetVisible(true);
+            if (menu == null) menu = UnityEngine.Object.FindObjectOfType<MainMenuHandler>();
+            if (menu == null) { if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuHandler not found yet; Mods button is waiting for the main menu."); menuDiagnosticsLogged = true; } return; }
+            if (softUiService != null) { GameObject mainMenuRoot = GetMenuObject(menu, "MainMenuObject"); if (mainMenuRoot != null) softUiService.InstallMainMenuButton(mainMenuRoot); else if (!menuDiagnosticsLogged) { context.Log.Warning("MainMenuObject is not initialized yet; Mods button is waiting."); menuDiagnosticsLogged = true; } }
         }
 
         void BuildSettingsUi(SoftUiService softUi)
         {
+            softUi.ModMenu.Register("tabium", "Tabium", BuildTabiumSettings);
+            return;
+            /* Legacy Options implementation retained below for reference; the active Tabium UI is the separate Mods menu page. */
             window = softUi.CreateWindow("tabs-settings", "Settings").BindTo(() => { MainMenuHandler menu = MainMenuHandler.Instance; return menu != null && menu.CurrentMenuState == MainMenuHandler.MenuState.Options; });
             Options existing = Options.Instance;
             SoftTab video = window.AddTab("video", "VIDEO");
@@ -94,6 +89,20 @@ namespace Tabium
             string[] frameRates = { "30", "60", "90", "120" };
             tabium.AddDropdown("frameRate", "TARGET FPS", frameRates, FrameRateIndex(), value => { Set("frameRate", frameRates[value]); Set("frameLimit", true); ApplySettings(); });
             tabium.AddButton("APPLY TABIUM", ApplySettings);
+        }
+
+        void BuildTabiumSettings(SoftTab tab)
+        {
+            Options existing = Options.Instance;
+            tab.AddLabel("TABIUM", 22);
+            tab.AddLabel("SODIUM-INSPIRED PERFORMANCE SETTINGS", 12);
+            tab.AddToggle("effects", "REDUCE EFFECTS", settings.GetBool("reduceEffects", true), value => { Set("reduceEffects", value); ApplySettings(); });
+            tab.AddToggle("shadows", "DISABLE REALTIME SHADOWS", settings.GetBool("lowShadows", false), value => { Set("lowShadows", value); ApplySettings(); });
+            tab.AddToggle("frame", "FRAME RATE LIMIT", settings.GetBool("frameLimit", true), value => { Set("frameLimit", value); ApplySettings(); });
+            string[] frameRates = { "30", "60", "90", "120" };
+            tab.AddDropdown("frameRate", "TARGET FPS", frameRates, FrameRateIndex(), value => { Set("frameRate", frameRates[value]); Set("frameLimit", true); ApplySettings(); });
+            tab.AddSlider("shadowDistance", "SHADOW DISTANCE", ParseFloat(settings.Get("shadowDistance", "35"), 35f), 0f, 150f, value => { Set("shadowDistance", value.ToString("0")); ApplySettings(); });
+            tab.AddButton("APPLY TABIUM", ApplySettings);
         }
 
         void SetupNativeOptions(GameObject root)
