@@ -14,5 +14,7 @@ The Closed Alpha contains post-processing/image-effect systems such as SSAO, blo
 currently controls through the real `Options` singleton. The runtime also exposes Unity's quality settings for shadows, anti-aliasing, pixel
 lights, soft particles, VSync and frame rate.
 
-No game-specific `LODGroup` or static-batch renderer was observed in `MainScene`; battle scenes must be measured separately. The diagnostics are
-logged per scene so future optimization changes can target measured bottlenecks instead of disabling systems that the game already uses.
+`MainScene` has no `LODGroup` or static-batch renderer, but a runtime sample of the `Scotland` battle scene reported 2 cameras with occlusion
+culling enabled, 95 static-batch renderers, 3 lightmaps and 1 light. This confirms that the battle scenes already use baked lighting and static
+batching. The diagnostics are logged per scene so future optimization changes can target measured bottlenecks instead of disabling systems that
+the game already uses.
