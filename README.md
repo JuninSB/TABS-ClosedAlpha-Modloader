@@ -26,6 +26,17 @@ app/
 
 Para desabilitar um mod, acrescente o `id` dele em `app/Loader/disabled-mods.txt`.
 
+## Release portátil
+
+Baixe o asset `TABS-ClosedAlpha-Modloader-v1.0.0-portable.zip` na página de [Releases](https://github.com/JuninSB/TABS-ClosedAlpha-Modloader/releases), extraia-o em qualquer lugar e execute:
+
+```powershell
+Set-ExecutionPolicy -Scope Process Bypass
+.\Scripts\Install-PortableLoader.ps1 -GameDirectory "C:\caminho\para\sua\copia\do\TABS"
+```
+
+`GameDirectory` deve ser a pasta que contém `TotallyAccurateBattleSimulatorClosedAlpha.exe`. O pacote não redistribui o executável nem os assets proprietários do TABS; ele instala somente BepInEx, o loader, os mods, metadados e configurações.
+
 Leia [a documentação de desenvolvimento](Docs/Modding.md) e [a análise da build](Docs/Game-Analysis.md).
 
 `SoftUI` e `Tabium` são projetos separados. `SoftUI` é somente uma library/framework: fornece janelas, sidebar, tabs, labels, buttons, toggles, sliders e selects para qualquer mod, sem alterar performance ou regras do jogo. `Tabium` é o mod de otimização inspirado no Sodium; ele depende de `SoftUI` apenas para exibir suas configurações. O Tabium adiciona seu painel somente quando `MainMenuHandler.CurrentMenuState` é o estado real `Options`; ele não aparece na tela inicial. As escolhas ficam em `app/Mods/Tabium/config.cfg`.
