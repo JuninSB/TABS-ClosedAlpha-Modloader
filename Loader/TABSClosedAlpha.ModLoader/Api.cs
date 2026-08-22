@@ -27,10 +27,11 @@ namespace TABSClosedAlpha
         public ModSettings Settings { get { return new ModSettings(Path.Combine(RootPath, "config.cfg"), Log); } }
         public ModPatches Patches { get { return new ModPatches(Metadata.Id, Log); } }
         public TabsGame Game { get { return TabsGame.Instance; } }
+        public bool IsModLoaded(string id) { return runtime.IsModLoaded(id); }
     }
 
     public interface IModLogger { void Info(string message); void Warning(string message); void Error(string message); void Error(string message, Exception exception); }
-    public sealed class ModMetadata { public string Id; public string Name; public string Version; public string ApiVersion; public string Author; public string Description; public string Main; public string MainType; public List<ModDependency> Dependencies = new List<ModDependency>(); public List<string> Conflicts = new List<string>(); }
+    public sealed class ModMetadata { public string Id; public string Name; public string Version; public string ApiVersion; public string Author; public string Description; public string Main; public string MainType; public List<ModDependency> Dependencies = new List<ModDependency>(); public List<ModDependency> Recommends = new List<ModDependency>(); public List<string> Suggests = new List<string>(); public List<ModDependency> Breaks = new List<ModDependency>(); public List<string> Conflicts = new List<string>(); }
     public sealed class ModDependency { public string Id; public string Version; }
 
     public sealed class ModEvents
