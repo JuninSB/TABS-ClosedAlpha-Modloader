@@ -159,9 +159,22 @@ namespace Tweaks
             FieldInfo leftField = typeof(PhysicsAnimation).GetField("leftLeg", flags); FieldInfo rightField = typeof(PhysicsAnimation).GetField("rightLeg", flags);
             Rigidbody left = leftField == null ? null : leftField.GetValue(anim) as Rigidbody; Rigidbody right = rightField == null ? null : rightField.GetValue(anim) as Rigidbody;
             if (left == null || right == null) return;
-            Vector3 support = (left.worldCenterOfMass + right.worldCenterOfMass) * .5f; Vector3 error = Vector3.ProjectOnPlane(support - torso.worldCenterOfMass, Vector3.up);
+            bool leftSupported = HasGroundContact(left); bool rightSupported = HasGroundContact(right); if (!leftSupported && !rightSupported) return;
+            Vector3 support = leftSupported && rightSupported ? (left.worldCenterOfMass + right.worldCenterOfMass) * .5f : (leftSupported ? left.worldCenterOfMass : right.worldCenterOfMass); Vector3 error = Vector3.ProjectOnPlane(support - torso.worldCenterOfMass, Vector3.up);
             if (error.sqrMagnitude < .0025f) return;
             float balanceStrength = ParseFloat(settings.Get("balanceAssistStrength", "0.035"), .035f); torso.AddForce(error * balanceStrength, ForceMode.VelocityChange);
+        }
+        bool HasGroundContact(Rigidbody leg)
+        {
+            if (leg == null) return false;
+            RaycastHit[] hits = Physics.RaycastAll(leg.worldCenterOfMass + Vector3.up * .05f, Vector3.down, .7f);
+            for (int i = 0; i < hits.Length; i++)
+            {
+                if (hits[i].collider == null) continue;
+                UnitHandler owner = hits[i].collider.GetComponentInParent<UnitHandler>();
+                if (owner == null || owner != controlledUnit) return true;
+            }
+            return false;
         }
         void PrimeControlCooldowns()
         {
