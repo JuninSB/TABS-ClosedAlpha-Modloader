@@ -19,6 +19,7 @@ O script adiciona somente `app\winhttp.dll`, `app\doorstop_config.ini`, `app\Bep
 app/
   Mods/ExampleMod/{ExampleMod.dll,mod.json,Assets/}
   Mods/Tabium/{Tabium.dll,mod.json}
+  Mods/SoftUI/{SoftUI.dll,mod.json}
   Loader/{TABSClosedAlpha.ModLoader.dll,disabled-mods.txt}
   BepInEx/plugins/TABSClosedAlpha.ModLoader.dll
 ```
@@ -27,4 +28,4 @@ Para desabilitar um mod, acrescente o `id` dele em `app/Loader/disabled-mods.txt
 
 Leia [a documentação de desenvolvimento](Docs/Modding.md) e [a análise da build](Docs/Game-Analysis.md).
 
-O mod `Tabium` adiciona um painel próprio à tela real de configurações do jogo. Ele oferece toggles para reduzir SSAO/anti-aliasing/depth-of-field/bloom, desligar sombras realtime e usar limite estável de 60 FPS. As escolhas ficam em `app/Mods/Tabium/config.cfg`.
+O mod `SoftUI` fornece janelas com sidebar, tabs, labels, buttons, toggles, sliders e selects para outros mods. O `Tabium` depende dele e adiciona seu painel somente quando `MainMenuHandler.CurrentMenuState` é o estado real `Options`; ele não aparece mais na tela inicial. O `Tabium` oferece controles para reduzir SSAO/anti-aliasing/depth-of-field/bloom, desligar sombras realtime e usar limite estável de FPS. As escolhas ficam em `app/Mods/Tabium/config.cfg`.
