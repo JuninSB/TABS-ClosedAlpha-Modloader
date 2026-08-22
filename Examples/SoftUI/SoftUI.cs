@@ -63,6 +63,7 @@ namespace SoftUI
         Func<bool> visibleWhen;
         string activeTab;
         public string Id { get; private set; }
+        public bool IsVisible { get { return root != null && root.activeSelf; } }
         public Transform Transform { get { return root.transform; } }
 
         internal SoftWindow(string id, string title, Transform canvas, IModLogger log)
