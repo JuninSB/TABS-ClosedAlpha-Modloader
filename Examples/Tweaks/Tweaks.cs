@@ -34,7 +34,7 @@ namespace Tweaks
             tab.AddSlider("edge-speed", "EDGE CAMERA SPEED", ParseFloat(settings.Get("edgeSpeed", "8"), 8f), 1f, 30f, value => Set("edgeSpeed", value.ToString("0.0")));
             tab.AddToggle("nearest-unit", "F CONTROLS UNIT NEAREST TO SCREEN CENTER", settings.GetBool("nearestUnit", true), value => Set("nearestUnit", value));
             tab.AddToggle("advanced-physics", "FISICA AVANCADA NA POSSE DA UNIDADE", settings.GetBool("advancedPhysics", true), value => Set("advancedPhysics", value));
-            tab.AddToggle("velocity-assist", "IMPULSO DISTRIBUIDO NOS RIGIDBODIES", settings.GetBool("velocityAssist", true), value => Set("velocityAssist", value));
+            tab.AddToggle("velocity-assist", "IMPULSO DISTRIBUIDO NOS RIGIDBODIES", settings.GetBool("velocityAssist", false), value => Set("velocityAssist", value));
             tab.AddToggle("balance-assist", "CORRECAO LEVE DE EQUILIBRIO", settings.GetBool("balanceAssist", true), value => Set("balanceAssist", value));
             tab.AddLabel("HOLD LEFT MOUSE: 0.1x   |   HOLD G: 0.01x   |   F: CONTROL UNIT", 11);
         }
@@ -119,14 +119,6 @@ namespace Tweaks
         void FixedControlPhysics()
         {
             if (!advancedPhysicsActive || !controlling || controlledUnit == null || controlledUnit.anim == null) return;
-            Rigidbody torso = controlledUnit.anim.torso;
-            if (torso != null)
-            {
-                Vector3 currentEuler = torso.rotation.eulerAngles;
-                Quaternion lookRotation = Quaternion.Euler(currentEuler.x, cameraYaw, currentEuler.z);
-                torso.MoveRotation(Quaternion.Slerp(torso.rotation, lookRotation, .22f));
-            }
-            controlledUnit.target = null;
             BindingFlags flags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic; FieldInfo forwardField = typeof(PhysicsAnimation).GetField("forwardDir", flags); FieldInfo turnField = typeof(PhysicsAnimation).GetField("turnMultiPlier", flags);
             // The modern game's MovementHandler has an explicit grounded gate. The
             // Closed Alpha has the same physical state in PhysicsAnimation.grounded;
@@ -134,6 +126,18 @@ namespace Tweaks
             // the existing leg/torso simulation responsible for landing instead of
             // fighting it with an artificial transform or target teleport.
             FieldInfo groundedField = typeof(PhysicsAnimation).GetField("grounded", flags); bool grounded = groundedField == null || (bool)groundedField.GetValue(controlledUnit.anim); if (!grounded) { controlledUnit.SetIdle(true); if (forwardField != null) forwardField.SetValue(controlledUnit.anim, Vector3.zero); return; }
+            Rigidbody torso = controlledUnit.anim.torso;
+            if (torso != null)
+            {
+                // Keep the Alpha's torso upright while allowing the native leg
+                // solver to handle the step cycle. Looking and walking remain
+                // separate, like the modern possession controller.
+                Quaternion lookRotation = Quaternion.Euler(0f, cameraYaw, 0f); torso.MoveRotation(Quaternion.Slerp(torso.rotation, lookRotation, .14f));
+                Vector3 horizontalVelocity = Vector3.ProjectOnPlane(torso.velocity, Vector3.up);
+                if (possessionMoveDirection.sqrMagnitude < .001f) torso.AddForce(-horizontalVelocity * .32f, ForceMode.VelocityChange);
+                else { Vector3 direction = possessionMoveDirection.normalized; Vector3 sidewaysVelocity = horizontalVelocity - Vector3.Project(horizontalVelocity, direction); torso.AddForce(-sidewaysVelocity * .20f, ForceMode.VelocityChange); }
+            }
+            controlledUnit.target = null;
             if (possessionMoveDirection.sqrMagnitude < .001f) { controlledUnit.SetIdle(true); if (forwardField != null) forwardField.SetValue(controlledUnit.anim, Vector3.zero); return; }
             controlledUnit.SetIdle(false);
             if (forwardField != null) forwardField.SetValue(controlledUnit.anim, possessionMoveDirection);
@@ -143,7 +147,7 @@ namespace Tweaks
         void ApplyModernPhysicsAssist(PhysicsAnimation anim, Vector3 move, Rigidbody torso, BindingFlags flags)
         {
             if (anim == null) return;
-            if (settings.GetBool("velocityAssist", true))
+            if (settings.GetBool("velocityAssist", false))
             {
                 FieldInfo speedField = typeof(PhysicsAnimation).GetField("speed", flags); float speed = speedField == null ? 1f : (float)speedField.GetValue(anim);
                 float strength = ParseFloat(settings.Get("velocityAssistStrength", "0.18"), .18f);
