@@ -6,4 +6,4 @@ github_key.txt
 **/obj/
 Mods/**/Assets/*
 !Mods/ExampleMod/mod.json
-TABS-ClosedAlpha-Tabium-Modloader.zip
+TABS-ClosedAlpha-*.zip
