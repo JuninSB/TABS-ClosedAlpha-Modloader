@@ -4,7 +4,7 @@
   "version": "1.0.0",
   "apiVersion": "1.0",
   "author": "JuninSB",
-  "description": "Reusable sidebar, tabs and controls for TABS mods.",
+  "description": "UI library only: reusable sidebar, tabs and controls for any TABS mod. It does not optimize the game.",
   "main": "SoftUI.dll",
   "mainType": "SoftUI.Main",
   "dependencies": []
