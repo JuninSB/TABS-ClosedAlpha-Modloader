@@ -7,5 +7,5 @@
   "description": "Optimization settings for the 2016 TABS Closed Alpha.",
   "main": "Tabium.dll",
   "mainType": "Tabium.Main",
-  "dependencies": []
+  "dependencies": ["softui"]
 }
