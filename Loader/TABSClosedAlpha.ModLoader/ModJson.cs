@@ -15,14 +15,23 @@ namespace TABSClosedAlpha
             var mod = new ModMetadata();
             mod.Id = StringValue(root, "id"); mod.Name = StringValue(root, "name"); mod.Version = StringValue(root, "version"); mod.ApiVersion = StringValue(root, "apiVersion");
             mod.Author = StringValue(root, "author"); mod.Description = StringValue(root, "description"); mod.Main = StringValue(root, "main"); mod.MainType = StringValue(root, "mainType");
-            object dependencies; if (root.TryGetValue("dependencies", out dependencies) && dependencies is ArrayList) foreach (object value in (ArrayList)dependencies)
-            {
-                var name = value as string; if (name != null) { mod.Dependencies.Add(new ModDependency { Id = name }); continue; }
-                var objectValue = value as Dictionary<string, object>; if (objectValue == null) throw new FormatException("dependencies entries must be strings or objects.");
-                mod.Dependencies.Add(new ModDependency { Id = StringValue(objectValue, "id"), Version = StringValue(objectValue, "version") });
-            }
+            ReadDependencies(root, "dependencies", mod.Dependencies);
+            ReadDependencies(root, "recommends", mod.Recommends);
+            ReadDependencies(root, "breaks", mod.Breaks);
+            object suggests; if (root.TryGetValue("suggests", out suggests) && suggests is ArrayList) foreach (object value in (ArrayList)suggests) { string id = value as string; if (String.IsNullOrEmpty(id)) throw new FormatException("suggests entries must be strings."); mod.Suggests.Add(id); }
             object conflicts; if (root.TryGetValue("conflicts", out conflicts) && conflicts is ArrayList) foreach (object value in (ArrayList)conflicts) { string id = value as string; if (String.IsNullOrEmpty(id)) throw new FormatException("conflicts entries must be strings."); mod.Conflicts.Add(id); }
             return mod;
+        }
+        static void ReadDependencies(Dictionary<string, object> root, string key, List<ModDependency> destination)
+        {
+            object values; if (!root.TryGetValue(key, out values)) return;
+            ArrayList list = values as ArrayList; if (list == null) throw new FormatException(key + " must be an array.");
+            foreach (object value in list)
+            {
+                string name = value as string; if (name != null) { destination.Add(new ModDependency { Id = name }); continue; }
+                Dictionary<string, object> objectValue = value as Dictionary<string, object>; if (objectValue == null) throw new FormatException(key + " entries must be strings or objects.");
+                destination.Add(new ModDependency { Id = StringValue(objectValue, "id"), Version = StringValue(objectValue, "version") });
+            }
         }
         static string StringValue(Dictionary<string, object> objectValue, string name) { object value; return objectValue.TryGetValue(name, out value) && value != null ? value as string : null; }
     }
